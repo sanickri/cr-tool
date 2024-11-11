@@ -195,10 +195,9 @@ class PhabricatorAPI {
 
 	// To find PHID: curl -X POST -d api.token=your_api_token https://phabricator.ccl/api/user.whoami
 	async getUserInfo(userPHID) {
-		console.log('User PHID:', userPHID)
 		const result = await this.callAPI('user.search', {
 			constraints: {
-				phids: userPHID
+				phids: [userPHID]
 			}
 		})
 		return result.data

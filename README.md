@@ -23,6 +23,33 @@ cd <repository-directory>
 ```
 2. Install the dependencies
 ``` npm install ``` 
+
+## Setup
+### GIT
+To set up Git OAuth, follow these steps:
+1. Set up a token in your Git profile:
+- Navigate to **Edit profile -> Applications.**
+- Uncheck **confidential** and check the **api** scope.
+- Set the redirect URI to the port where you run your app (e.g., 'http://localhost:3000/').
+- Save the app ID and secret to your **`.env`** file:
+```
+REACT_APP_GITLAB_CLIENT_SECRET=<your_secret
+REACT_APP_GITLAB_CLIENT_ID=<your_app_id
+REACT_APP_GITLAB_REDIRECT_URL=<your_redirect_url>
+```
+
+2. Fill in your Git adress in the application to start using it.
+
+### Phabricator
+To set up Phabricator authentication, follow these steps:
+1. Obtain an API token from **Settings -> Conduit API Tokens -> Generate Token.**
+2. Save your token for login.
+3. Obtain your PHID by running:
+```curl -X POST -d api.token=<your_api_token> <your_phabricator_url>/api/user.whoami```
+4. Save the PHID to your **`.env`** file:
+```REACT_APP_PHID=<your_phid>```
+5. Fill in your Phabricator URL and token in the application to start using it.
+
 ## Available Scripts
 
 In the project directory, you can run:
@@ -50,34 +77,14 @@ Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
+### `npm run format`
+
+Formats the code with prettier.
+
 ### `npm run eject`
 
 **Note: this is a one-way operation. Once you `eject`, you can't go back!**
 
 This command will remove the single build dependency from your project, allowing full control over the configuration files and dependencies.
 
-## Setup
-### GIT
-To set up Git OAuth, follow these steps:
-1. Set up a token in your Git profile:
-- Navigate to **Edit profile -> Applications.**
-- Uncheck **confidential** and check the **api** scope.
-- Set the redirect URI to the port where you run your app (e.g., 'http://localhost:3000/').
-- Save the app ID and secret to your **`.env`** file:
-```
-REACT_APP_GITLAB_CLIENT_SECRET=<your_secret
-REACT_APP_GITLAB_CLIENT_ID=<your_app_id
-REACT_APP_GITLAB_REDIRECT_URL=<your_redirect_url>
-```
-
-2. Fill in your Git adress in the application to start using it.
-
-### Phabricator
-To set up Phabricator authentication, follow these steps:
-1. Obtain an API token from **Settings -> Conduit API Tokens -> Generate Token.**
-2. Save your token for login.
-3. Obtain your PHID by running:
-```curl -X POST -d api.token=<your_api_token> <your_phabricator_url>/api/user.whoami```
-4. Save the PHID to your **`.env`** file:
-```REACT_APP_PHID=<your_phid>```
-5. Fill in your Phabricator URL and token in the application to start using it.
+Note: If your Phabricator is failing to fetch because of CORS policy you can **temporarily** disable CORS policy with extentension like [CORS Unblock](https://webextension.org/listing/access-control.html)
