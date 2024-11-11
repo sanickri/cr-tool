@@ -1,6 +1,6 @@
 # Cr-Tool
 
-Welcome to the early development version of My Tool! This project is designed to connect with your Git or Phabricator account to view all open revisions. Please note that as this is an early version, there will be many changes and improvements over time.
+Welcome to the early development version of Cr-Tool! This project is designed to connect with your Git or Phabricator account to view all open revisions. Please note that as this is an early version, there will be many changes and improvements over time.
 
 ## Features
 
