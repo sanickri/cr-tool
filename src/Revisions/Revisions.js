@@ -1,0 +1,73 @@
+import React, { useEffect, useState } from 'react'
+import { DataGrid } from '@mui/x-data-grid'
+import { Container } from '@mui/material'
+import Link from '@mui/material/Link'
+import { PhabricatorAPI } from '../utils/auth'
+
+const RevisionsDataGrid = ({ revisions }) => {
+	const [rows, setRows] = useState([])
+
+	useEffect(() => {
+		const fetchAuthors = async () => {
+			const phabricatorConfig = {
+				phabricatorUrl: localStorage.getItem('phabricatorUrl'),
+				phabricatorToken: localStorage.getItem('phabricatorToken')
+			}
+			const phabricatorAPI = new PhabricatorAPI(phabricatorConfig)
+
+			const updatedRevisions = await Promise.all(
+				revisions.map(async (revision) => {
+					let authorName = revision.author?.name || 'Unknown'
+					if (revision.phid) {
+						try {
+							const userInfo = await phabricatorAPI.getUserInfo([
+								revision.fields.authorPHID
+							])
+							authorName =
+								userInfo[0].fields.realName || 'Unknown'
+						} catch (error) {
+							console.error('Error fetching user info:', error)
+						}
+					}
+					return {
+						id: revision.id,
+						title: revision.phid
+							? revision.fields.title
+							: revision.title,
+						status: revision.phid
+							? revision.fields.status.name
+							: revision.detailed_merge_status,
+						url: revision.phid
+							? `${localStorage.getItem('phabricatorUrl')}/D${revision.id}`
+							: revision.web_url,
+						author: authorName
+					}
+				})
+			)
+
+			setRows(updatedRevisions)
+		}
+
+		fetchAuthors()
+	}, [revisions])
+
+	const columns = [
+		{
+			field: 'ID',
+			renderCell: (cellValues) => (
+				<Link href={`${cellValues.row.url}`}>{cellValues.row.id}</Link>
+			)
+		},
+		{ field: 'title', headerName: 'Title', width: 500 },
+		{ field: 'author', headerName: 'Author', width: 150 },
+		{ field: 'status', headerName: 'Status', width: 150 }
+	]
+
+	return (
+		<Container maxWidth="lg">
+			<DataGrid rows={rows} columns={columns} pageSize={5} />
+		</Container>
+	)
+}
+
+export default RevisionsDataGrid
