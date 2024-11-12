@@ -50,6 +50,14 @@ To set up Phabricator authentication, follow these steps:
 ```REACT_APP_PHID=<your_phid>```
 5. Fill in your Phabricator URL and token in the application to start using it.
 
+### Other
+For faster testing you can add your gitlab/Phabricator uri and your gitlab token to the **`.env`** 
+```
+REACT_APP_PHABRICATOR_URL=<your_phabricator_uri>
+REACT_APP_PHABRICATOR_API_TOKEN=<your_api_token>
+REACT_APP_GITLAB_UR=<your_git_uri>
+```
+
 ## Available Scripts
 
 In the project directory, you can run:
