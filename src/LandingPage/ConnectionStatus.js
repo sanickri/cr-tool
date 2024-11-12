@@ -9,7 +9,8 @@ import {
 	TextField,
 	DialogActions
 } from '@mui/material'
-import { gitlabConnect, PhabricatorAPI } from '../utils/auth'
+import { gitlabConnect } from '../utils/gitlabUtils'
+import PhabricatorAPI from '../utils/phabricatorUtils'
 
 function ConnectionStatus({
 	isGitConnected,
@@ -29,14 +30,13 @@ function ConnectionStatus({
 	setAllPhabUsers
 }) {
 	const handleGitlabConnect = () => {
-		// Handle GitLab OAuth2 logic here
+		// Handle Gitlab OAuth2 logic
 		localStorage.setItem('gitlabUrl', gitlabUrl)
 		gitlabConnect(gitlabUrl)
 	}
 
 	const handlePhabricatorConnect = () => {
-		// Handle Phabricator API token logic here
-		// phabricatorConnect(phabricatorToken, phabricatorUrl)
+		// Handle Phabricator API token logic
 		localStorage.setItem('phabricatorUrl', phabricatorUrl)
 		localStorage.setItem('phabricatorToken', phabricatorToken)
 		const phabricatorConfig = {
@@ -45,11 +45,11 @@ function ConnectionStatus({
 		}
 		const phabricatorAPI = new PhabricatorAPI(phabricatorConfig)
 
-		console.log('Phabr api:', phabricatorAPI)
 		phabricatorAPI
 			.getUserInfo(process.env.REACT_APP_PHID)
 			.then((userInfo) => {
 				console.log('Phabricator User:', userInfo)
+				localStorage.setItem('phabUser', JSON.stringify(userInfo))
 			})
 			.catch((error) => {
 				console.error('Error fetching user info:', error)
@@ -109,20 +109,20 @@ function ConnectionStatus({
 				</Typography>
 			)}
 
-			{/* GitLab Dialog */}
+			{/* Gitlab Dialog */}
 			<Dialog
 				open={gitlabDialogOpen}
 				onClose={() => setGitlabDialogOpen(false)}
 			>
-				<DialogTitle>Connect GitLab</DialogTitle>
+				<DialogTitle>Connect Gitlab</DialogTitle>
 				<DialogContent>
 					<DialogContentText>
-						Please enter your GitLab URL to connect via OAuth2.
+						Please enter your Gitlab URL to connect via OAuth2.
 					</DialogContentText>
 					<TextField
 						autoFocus
 						margin="dense"
-						label="GitLab URL"
+						label="Gitlab URL"
 						type="url"
 						fullWidth
 						variant="outlined"

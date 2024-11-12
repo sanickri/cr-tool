@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { DataGrid } from '@mui/x-data-grid'
-import { Container } from '@mui/material'
+import { Alert, Container } from '@mui/material'
 import Link from '@mui/material/Link'
-import { PhabricatorAPI } from '../utils/auth'
+import PhabricatorAPI from '../utils/phabricatorUtils'
 
 const formatDate = (date) => {
 	const options = { year: 'numeric', month: '2-digit', day: '2-digit' }
@@ -13,54 +13,89 @@ const RevisionsDataGrid = ({ revisions }) => {
 	const [rows, setRows] = useState([])
 
 	useEffect(() => {
-		const fetchAuthors = async () => {
-			const phabricatorConfig = {
+		const fetchData = async () => {
+			const phabricatorAPI = new PhabricatorAPI({
 				phabricatorUrl: localStorage.getItem('phabricatorUrl'),
 				phabricatorToken: localStorage.getItem('phabricatorToken')
-			}
-			const phabricatorAPI = new PhabricatorAPI(phabricatorConfig)
+			})
 
 			const updatedRevisions = await Promise.all(
-				revisions.map(async (revision) => {
-					let authorName = revision.author?.name || 'Unknown'
-					if (revision.phid) {
-						try {
-							const userInfo = await phabricatorAPI.getUserInfo(
-								revision.fields.authorPHID
-							)
-							authorName =
-								userInfo[0].fields.realName || 'Unknown'
-						} catch (error) {
-							console.error('Error fetching user info:', error)
-						}
-					}
-					return {
-						id: revision.id,
-						title: revision.phid
-							? revision.fields.title
-							: revision.title,
-						status: revision.phid
-							? revision.fields.status.name
-							: revision.detailed_merge_status,
-						url: revision.phid
-							? `${localStorage.getItem('phabricatorUrl')}/D${revision.id}`
-							: revision.web_url,
-						author: authorName,
-						dateModified: revision.phid
-							? revision.fields.dateModified * 1000
-							: revision.updated_at,
-						isDraft: revision.phid
-							? revision.fields.isDraft
-							: revision.work_in_progress
-					}
-				})
+				revisions.map((revision) =>
+					updateRevisionData(revision, phabricatorAPI)
+				)
 			)
 
 			setRows(updatedRevisions)
 		}
 
-		fetchAuthors()
+		fetchData()
 	}, [revisions])
+
+	const updateRevisionData = async (revision, phabricatorAPI) => {
+		let authorName = revision.author?.name || 'Unknown'
+		let project =
+			{
+				name: revision.project_namespace,
+				url: revision.project_url
+			} || 'Unknown'
+		if (revision.phid) {
+			authorName = await fetchAuthorName(
+				revision.fields.authorPHID,
+				phabricatorAPI
+			)
+			project = await fetchProjectNameAndId(
+				revision.fields.repositoryPHID,
+				phabricatorAPI
+			)
+		}
+		return mapRevisionToRow(revision, authorName, project)
+	}
+
+	const fetchAuthorName = async (authorPHID, phabricatorAPI) => {
+		try {
+			const userInfo = await phabricatorAPI.getUserInfo(authorPHID)
+			return userInfo[0].fields.realName || 'Unknown'
+		} catch (error) {
+			console.error('Error fetching user info:', error)
+			return 'Unknown'
+		}
+	}
+
+	const fetchProjectNameAndId = async (projectPHID, phabricatorAPI) => {
+		try {
+			const projectInfo =
+				await phabricatorAPI.getPhabricatorRepositoryInfo(projectPHID)
+			return (
+				{
+					name: projectInfo[0]?.fields.name,
+					url: `${localStorage.getItem('phabricatorUrl')}/diffusion/${projectInfo[0]?.id}`
+				} || 'Unknown'
+			)
+		} catch (error) {
+			console.error('Error fetching project info:', error)
+			return 'Unknown'
+		}
+	}
+
+	const mapRevisionToRow = (revision, authorName, project) => ({
+		id: revision.id,
+		title: revision.phid ? revision.fields.title : revision.title,
+		status: revision.phid
+			? revision.fields.status.name
+			: revision.detailed_merge_status,
+		url: revision.phid
+			? `${localStorage.getItem('phabricatorUrl')}/D${revision.id}`
+			: revision.web_url,
+		author: authorName,
+		dateModified: revision.phid
+			? revision.fields.dateModified * 1000
+			: revision.updated_at,
+		isDraft: revision.phid
+			? revision.fields.isDraft
+			: revision.work_in_progress,
+		project: project.name,
+		projectUrl: project.url
+	})
 
 	const columns = [
 		{
@@ -75,19 +110,37 @@ const RevisionsDataGrid = ({ revisions }) => {
 		{
 			field: 'dateModified',
 			headerName: 'Date Modified',
-			width: 200,
+			width: 150,
 			renderCell: (cellValues) => {
 				const date = new Date(cellValues.row.dateModified)
 				return formatDate(date)
 			}
 		},
+		{
+			field: 'Project',
+			renderCell: (cellValues) => (
+				<Link href={`${cellValues.row.projectUrl}`}>
+					{cellValues.row.project}
+				</Link>
+			),
+			width: 200
+		},
 		{ field: 'isDraft', headerName: 'Draft', width: 100 }
 	]
 
 	return (
-		<Container maxWidth="lg">
-			<DataGrid rows={rows} columns={columns} pageSize={5} />
-		</Container>
+		<>
+			{revisions && (
+				<Container maxWidth="lg">
+					<DataGrid rows={rows} columns={columns} pageSize={5} />
+				</Container>
+			)}
+			{!revisions && (
+				<Alert severity="info" color="warning">
+					No revisions found
+				</Alert>
+			)}
+		</>
 	)
 }
 
