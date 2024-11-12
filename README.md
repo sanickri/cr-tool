@@ -55,7 +55,7 @@ For faster testing you can add your gitlab/Phabricator uri and your gitlab token
 ```
 REACT_APP_PHABRICATOR_URL=<your_phabricator_uri>
 REACT_APP_PHABRICATOR_API_TOKEN=<your_api_token>
-REACT_APP_GITLAB_UR=<your_git_uri>
+REACT_APP_GITLAB_URL=<your_git_uri>
 ```
 
 ## Available Scripts
