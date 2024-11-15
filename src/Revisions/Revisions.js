@@ -11,6 +11,11 @@ const formatDate = (date) => {
 
 const RevisionsDataGrid = ({ revisions }) => {
 	const [rows, setRows] = useState([])
+	const [filterModel, setFilterModel] = useState(() => {
+		// Retrieve filter model from localStorage on initial load
+		const savedFilterModel = localStorage.getItem('dataGridFilterModel')
+		return savedFilterModel ? JSON.parse(savedFilterModel) : { items: [] }
+	})
 
 	useEffect(() => {
 		const fetchData = async () => {
@@ -19,8 +24,9 @@ const RevisionsDataGrid = ({ revisions }) => {
 				phabricatorToken: localStorage.getItem('phabricatorToken')
 			})
 
+			const flatRevisions = revisions.flat()
 			const updatedRevisions = await Promise.all(
-				revisions.map((revision) =>
+				flatRevisions.map((revision) =>
 					updateRevisionData(revision, phabricatorAPI)
 				)
 			)
@@ -94,10 +100,12 @@ const RevisionsDataGrid = ({ revisions }) => {
 			? revision.fields.isDraft
 			: revision.work_in_progress,
 		project: project.name,
-		projectUrl: project.url
+		projectUrl: project.url,
+		source: revision.phid ? 'P' : 'G'
 	})
 
 	const columns = [
+		{ field: 'source', headerName: '', width: 50 },
 		{
 			field: 'ID',
 			renderCell: (cellValues) => (
@@ -128,11 +136,24 @@ const RevisionsDataGrid = ({ revisions }) => {
 		{ field: 'isDraft', headerName: 'Draft', width: 100 }
 	]
 
+	const handleFilterModelChange = (newFilterModel) => {
+		setFilterModel(newFilterModel)
+		localStorage.setItem(
+			'dataGridFilterModel',
+			JSON.stringify(newFilterModel)
+		)
+	}
+
 	return (
 		<>
 			{revisions && (
-				<Container maxWidth="lg">
-					<DataGrid rows={rows} columns={columns} pageSize={5} />
+				<Container maxWidth={false}>
+					<DataGrid
+						rows={rows}
+						columns={columns}
+						filterModel={filterModel}
+						onFilterModelChange={handleFilterModelChange}
+					/>
 				</Container>
 			)}
 			{!revisions && (

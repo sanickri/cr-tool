@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import { on } from 'process'
 dotenv.config()
 
 const gitlabConnect = (gitlabUrl) => {
@@ -7,33 +8,6 @@ const gitlabConnect = (gitlabUrl) => {
 	const gitlabAuthUrl = `${gitlabUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=api`
 
 	window.location.href = gitlabAuthUrl
-}
-
-const handleGitlabCallback = async (setIsGitConnected, setRevisions) => {
-	const urlParams = new URLSearchParams(window.location.search)
-	const code = urlParams.get('code')
-	let user = localStorage.getItem('gitlabUser')
-	if (code) {
-		try {
-			const token = await gitlabCallback(code)
-			if (token) {
-				setIsGitConnected(true)
-				window.history.replaceState(
-					{},
-					document.title,
-					window.location.pathname
-				)
-			}
-			user = await getMyGitlabUser()
-		} catch (error) {
-			console.error('Error during Gitlab callback:', error)
-		}
-	}
-	if (user) {
-		await getGitlabMRsFromAllProjects().then((mrs) => {
-			setRevisions(mrs)
-		})
-	}
 }
 
 const gitlabCallback = async (code) => {
@@ -150,6 +124,44 @@ async function getGitlabProjects() {
 	}
 }
 
+const fetchProjectsByIds = async (ids) => {
+	const gitlabToken = localStorage.getItem('gitlabToken')
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+	const newIds = ids
+		.split(',')
+		.map((id) => id.trim())
+		.filter((id) => id)
+
+	try {
+		const fetchedProjects = await Promise.all(
+			newIds.map(async (id) => {
+				const response = await fetch(
+					`${gitlabUrl}/api/v4/projects/${id}`,
+					{
+						method: 'GET',
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: `Bearer ${gitlabToken}`
+						}
+					}
+				)
+
+				if (!response.ok) {
+					throw new Error(
+						`Error fetching project with ID ${id}: ${response.statusText}`
+					)
+				}
+
+				return await response.json()
+			})
+		)
+
+		return fetchedProjects
+	} catch (error) {
+		console.error('Error fetching projects:', error)
+	}
+}
+
 // Helper function to map access level to role name
 function getRoleName(accessLevel) {
 	switch (accessLevel) {
@@ -207,18 +219,14 @@ async function getGitlabMRsFromAllProjects() {
 			}))
 		})
 	)
-
-	console.log(
-		'Unmerged Gitlab Merge Requests with Project Namespace:',
-		mergeRequests
-	)
 	return mergeRequests.flat()
 }
 
 export {
 	gitlabConnect,
-	handleGitlabCallback,
+	gitlabCallback,
 	getMyGitlabUser,
 	getGitlabProjects,
+	fetchProjectsByIds,
 	getGitlabMRsFromAllProjects
 }

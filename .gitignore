@@ -6,8 +6,6 @@
 .pnp.js
 .env
 .prettierignore
-.prettierrc
-eslint.config.js
 
 # testing
 /coverage
