@@ -26,7 +26,7 @@ function ConnectionStatus({
 	setPhabricatorUrl,
 	phabricatorToken,
 	setPhabricatorToken,
-	setRevisions,
+	updateRevisionsForSource,
 	setAllPhabUsers
 }) {
 	const handleGitlabConnect = () => {
@@ -56,9 +56,10 @@ function ConnectionStatus({
 			})
 		phabricatorAPI
 			.getRevisions()
-			.then((revisions) => {
-				setRevisions(revisions)
-				console.log('Phabricator Revisions:', revisions)
+			.then((revs) => {
+				updateRevisionsForSource(1, revs)
+
+				console.log('Phabricator Revisions:', revs)
 			})
 			.catch((error) => {
 				console.error('Error fetching revisions:', error)
@@ -72,7 +73,7 @@ function ConnectionStatus({
 
 	return (
 		<div style={{ textAlign: 'center', marginTop: '50px' }}>
-			{!isGitConnected && !isPhabConnected ? (
+			{!isGitConnected || !isPhabConnected ? (
 				<>
 					<Typography variant="h4" gutterBottom>
 						Connect your profiles
@@ -83,17 +84,20 @@ function ConnectionStatus({
 							backgroundColor: '#F05032',
 							'&:hover': {
 								backgroundColor: '#D9432A'
-							}
+							},
+							display: isGitConnected ? 'none' : 'inline-block'
 						}}
 						onClick={() => setGitlabDialogOpen(true)}
 						style={{ marginRight: '20px' }}
 					>
 						Connect Git
 					</Button>
-					OR &nbsp;&nbsp;&nbsp;
 					<Button
 						variant="contained"
 						color="primary"
+						sx={{
+							display: isPhabConnected ? 'none' : 'inline-block'
+						}}
 						onClick={() => setPhabricatorDialogOpen(true)}
 					>
 						Connect Phabricator
