@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Alert, CircularProgress, Typography } from '@mui/material'
+import {
+	Button,
+	Alert,
+	CircularProgress,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogContentText,
+	DialogActions
+} from '@mui/material'
 import PhabricatorDialog from './PhabricatorDialog.js'
 import Revisions from '../Revisions/RevisionsList'
 import GitlabDialog from './GitlabDialog.js'
 import {
 	isGitlabTokenValid,
 	gitlabCallback,
+	getFollowedUsers,
 	getMyGitlabUser,
 	getTransformedGitlabMRs
 } from '../utils/gitlabUtils'
 import PhabricatorAPI from '../utils/phabricatorUtils'
-import ReplayIcon from '@mui/icons-material/Replay'
 import DownloadIcon from '@mui/icons-material/Download'
 import FetchProjectsDialog from './FetchProjectsDialog.js'
 import dayjs from 'dayjs'
@@ -20,6 +29,8 @@ const LandingPage = () => {
 	const [gitlabDialogOpen, setGitlabDialogOpen] = useState(false)
 	const [phabricatorDialogOpen, setPhabricatorDialogOpen] = useState(false)
 	const [fetchDialogOpen, setFetchDialogOpen] = useState(false)
+	const [expiredDialogOpen, setExpiredDialogOpen] =
+		useState(!isGitlabTokenValid())
 
 	const [gitlabSecret, setGitlabSecret] = useState(
 		process.env.REACT_APP_GITLAB_CLIENT_SECRET || ''
@@ -97,6 +108,8 @@ const LandingPage = () => {
 						)
 					}
 					user = await getMyGitlabUser()
+					const followedUsers = await getFollowedUsers()
+					console.log('Followed Users:', followedUsers)
 				} catch (error) {
 					console.error('Error during Gitlab callback:', error)
 				}
@@ -243,6 +256,26 @@ const LandingPage = () => {
 				updateRevisionsForSource={updateRevisionsForSource}
 				setIsFetching={setIsFetching}
 			/>
+			<Dialog
+				open={expiredDialogOpen}
+				onClose={() => setExpiredDialogOpen(false)}
+				aria-labelledby="alert-dialog-title"
+				aria-describedby="alert-dialog-description"
+			>
+				<DialogTitle id="alert-dialog-title">
+					{'Giltab Token Expired'}
+				</DialogTitle>
+				<DialogContent>
+					<DialogContentText id="alert-dialog-description">
+						Yout Gitlab token has expired. Please reconnect.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setExpiredDialogOpen(false)}>
+						Ok
+					</Button>
+				</DialogActions>
+			</Dialog>
 		</>
 	)
 }

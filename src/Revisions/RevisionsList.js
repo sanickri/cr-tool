@@ -3,6 +3,7 @@ import { DataGrid } from '@mui/x-data-grid'
 import { Alert, Container, Tooltip } from '@mui/material'
 import Link from '@mui/material/Link'
 import DraftsIcon from '@mui/icons-material/HourglassTop'
+import { Star } from '@mui/icons-material'
 import mapStatusToIcon from '../utils/mapStatusToIcon'
 
 const formatDate = (date) => {
@@ -28,7 +29,8 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 		projectUrl: revision.projectUrl,
 		color: revision.color,
 		iid: revision.iid || '',
-		jiraId: revision.jiraId
+		jiraId: revision.jiraId,
+		following: revision.following
 	}))
 
 	const columns = [
@@ -70,7 +72,30 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 				return cellValues.row.title
 			}
 		},
-		{ field: 'author', headerName: 'Author', width: 150 },
+		{
+			field: 'author',
+			headerName: 'Author',
+			width: 200,
+			renderCell: (cellValues) => {
+				if (cellValues.row.following) {
+					return (
+						<>
+							<b>{cellValues.row.author} </b>
+							<Tooltip title="Following">
+								<Star
+									sx={{
+										color: 'yellow',
+										position: 'relative',
+										top: '15%'
+									}}
+								/>
+							</Tooltip>
+						</>
+					)
+				}
+				return cellValues.row.author
+			}
+		},
 		{
 			field: 'dateModified',
 			headerName: 'Date Modified',
