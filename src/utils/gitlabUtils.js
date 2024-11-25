@@ -1,14 +1,5 @@
 import dayjs from 'dayjs'
 import dotenv from 'dotenv'
-import React from 'react'
-import {
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogContentText,
-	DialogTitle
-} from '@mui/material'
 dotenv.config()
 
 // Helper function to map access level to role name
@@ -29,35 +20,15 @@ const isGitlabTokenValid = () => {
 	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken'))
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
-	let open = false
 	if (!gitlabToken || !gitlabUrl) {
-		return false
+		return true
 	}
 	try {
 		const today = dayjs()
 		const expires = dayjs(gitlabToken.expires)
 		if (today.isAfter(expires)) {
-			open = true
-			return (
-				<Dialog
-					open={open}
-					onClose={(open = false)}
-					aria-labelledby="alert-dialog-title"
-					aria-describedby="alert-dialog-description"
-				>
-					<DialogTitle id="alert-dialog-title">
-						{'Giltab Token Expired'}
-					</DialogTitle>
-					<DialogContent>
-						<DialogContentText id="alert-dialog-description">
-							Yout Gitlab token has expired. Please reconnect.
-						</DialogContentText>
-					</DialogContent>
-					<DialogActions>
-						<Button onClick={(open = false)}>Ok</Button>
-					</DialogActions>
-				</Dialog>
-			)
+			console.log('Token expired')
+			return false
 		}
 		return true
 	} catch (error) {
@@ -228,6 +199,37 @@ const getProjectsByIds = async (ids) => {
 	}
 }
 
+const getStarredGitlabProjects = async () => {
+	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	try {
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects?starred=true&per_page=100`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching starred projects: ${response.statusText}`
+			)
+		}
+
+		const projects = await response.json()
+		console.log('Starred Projects:', projects)
+		return projects
+	} catch (error) {
+		console.error('Error fetching starred projects:', error)
+		return []
+	}
+}
+
 async function getUnmergedGitlabMergeRequests(projectId) {
 	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
 	try {
@@ -305,6 +307,7 @@ async function getGitlabMRbyId(mergeRequestId, projectId) {
 
 async function getTransformedGitlabMRs() {
 	const mergeRequests = await getGitlabMRsFromAllProjects()
+	const followedUsers = JSON.parse(localStorage.getItem('followedUsers'))
 
 	const transformedMRs = mergeRequests.map((mr) => ({
 		id: mr.id,
@@ -320,6 +323,7 @@ async function getTransformedGitlabMRs() {
 		iid: mr.iid || '',
 		color: 'orange',
 		jiraId: mr.title.match(/\[(\w+-\d+)\]/)?.[1],
+		following: followedUsers.some((user) => user.id === mr.author.id),
 		rowClick: async () => {
 			const mrdet = await getGitlabMRbyId(mr.iid, mr.project_id)
 			console.log('Merge Request:', mrdet)
@@ -330,6 +334,37 @@ async function getTransformedGitlabMRs() {
 	return transformedMRs
 }
 
+const getFollowedUsers = async () => {
+	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+	const userId = JSON.parse(localStorage.getItem('gitlabUser')).id
+
+	try {
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/users/${userId}/following`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(`Error fetching users: ${response.statusText}`)
+		}
+
+		const users = await response.json()
+		localStorage.setItem('followedUsers', JSON.stringify(users))
+		console.log('Followed Users:', users)
+		return users
+	} catch (error) {
+		console.error('Error fetching followed users:', error)
+		return []
+	}
+}
+
 export {
 	isGitlabTokenValid,
 	gitlabConnect,
@@ -337,6 +372,8 @@ export {
 	getMyGitlabUser,
 	getGitlabProjects,
 	getProjectsByIds,
+	getStarredGitlabProjects,
 	getGitlabMRbyId,
-	getTransformedGitlabMRs
+	getTransformedGitlabMRs,
+	getFollowedUsers
 }

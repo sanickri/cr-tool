@@ -2,6 +2,7 @@ import React from 'react'
 import {
 	getGitlabProjects,
 	getProjectsByIds,
+	getStarredGitlabProjects,
 	getTransformedGitlabMRs
 } from '../utils/gitlabUtils'
 import {
@@ -12,6 +13,7 @@ import {
 	DialogContent,
 	DialogActions
 } from '@mui/material'
+import Grid from '@mui/material/Grid2'
 import DownloadIcon from '@mui/icons-material/Download'
 
 function FetchProjectsDialog({
@@ -32,6 +34,18 @@ function FetchProjectsDialog({
 		const projects = await getGitlabProjects()
 		localStorage.setItem('gitProjects', JSON.stringify(projects))
 		console.log('Git Projects:', projects)
+		setHasGitProjects(true)
+		setIsFetching(false)
+		const revs = await getTransformedGitlabMRs()
+		updateRevisionsForSource(0, revs)
+		setFetchDialogOpen(false)
+	}
+
+	const handleFetchStarredGitProjects = async (byIds, starred) => {
+		setIsFetching(true)
+		const projects = await getStarredGitlabProjects()
+		localStorage.setItem('gitProjects', JSON.stringify(projects))
+		console.log('Git Projectsaa:', projects)
 		setHasGitProjects(true)
 		setIsFetching(false)
 		const revs = await getTransformedGitlabMRs()
@@ -64,43 +78,61 @@ function FetchProjectsDialog({
 		<Dialog open={fetchDialogOpen} onClose={closeFetchDialog}>
 			<DialogTitle>GitLab Projects</DialogTitle>
 			<DialogContent>
-				<Button
-					variant="contained"
-					sx={{
-						backgroundColor: '#F05032',
-						'&:hover': {
-							backgroundColor: '#D9432A'
-						}
-					}}
-					onClick={handleFetchGitProjects}
-					startIcon={<DownloadIcon />}
-				>
-					All
-				</Button>
-				<TextField
-					label="Project IDs"
-					placeholder="Enter project IDs separated by commas"
-					value={projectIds}
-					onChange={handleInputChange}
-					sx={{
-						marginTop: '10px',
-						marginBottom: '10px',
-						width: '90%'
-					}}
-				/>
-				<Button
-					variant="contained"
-					sx={{
-						backgroundColor: '#F05032',
-						'&:hover': {
-							backgroundColor: '#D9432A'
-						}
-					}}
-					onClick={handleFetchProjectsByIds}
-					startIcon={<DownloadIcon />}
-				>
-					by IDs
-				</Button>
+				<Grid container spacing={1}>
+					<Grid size={12}>
+						<TextField
+							label="Project IDs"
+							placeholder="Enter project IDs separated by commas"
+							value={projectIds}
+							onChange={handleInputChange}
+						/>
+					</Grid>
+					<Grid size={3}>
+						<Button
+							variant="contained"
+							sx={{
+								backgroundColor: '#F05032',
+								'&:hover': {
+									backgroundColor: '#D9432A'
+								}
+							}}
+							onClick={handleFetchProjectsByIds}
+							startIcon={<DownloadIcon />}
+						>
+							by IDs
+						</Button>
+					</Grid>
+					<Grid size={3}>
+						<Button
+							variant="contained"
+							sx={{
+								backgroundColor: '#F05032',
+								'&:hover': {
+									backgroundColor: '#D9432A'
+								}
+							}}
+							onClick={handleFetchStarredGitProjects}
+							startIcon={<DownloadIcon />}
+						>
+							starred
+						</Button>
+					</Grid>
+					<Grid size={3}>
+						<Button
+							variant="contained"
+							sx={{
+								backgroundColor: '#F05032',
+								'&:hover': {
+									backgroundColor: '#D9432A'
+								}
+							}}
+							onClick={handleFetchGitProjects}
+							startIcon={<DownloadIcon />}
+						>
+							All
+						</Button>
+					</Grid>
+				</Grid>
 			</DialogContent>
 			<DialogActions>
 				<Button onClick={closeFetchDialog} color="primary">
