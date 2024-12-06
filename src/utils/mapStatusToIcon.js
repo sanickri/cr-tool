@@ -15,9 +15,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Changes requested">
 			<ThumbDown
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -26,9 +24,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Waiting on approval">
 			<Flaky
 				sx={{
-					color: 'brown',
-					position: 'relative',
-					top: '15%'
+					color: 'brown'
 				}}
 			/>
 		</Tooltip>
@@ -37,9 +33,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Approved">
 			<ThumbUp
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
 				}}
 			/>
 		</Tooltip>
@@ -48,9 +42,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Unchecked">
 			<HourglassTop
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -59,9 +51,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Mergeable">
 			<Merge
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
 				}}
 			/>
 		</Tooltip>
@@ -70,9 +60,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Conflict">
 			<Merge
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -81,9 +69,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Need rebase">
 			<ReportGmailerrorred
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -92,9 +78,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Broken Status">
 			<HeartBroken
 				sx={{
-					color: 'grey',
-					position: 'relative',
-					top: '15%'
+					color: 'grey'
 				}}
 			/>
 		</Tooltip>
@@ -103,9 +87,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Approved">
 			<ThumbUp
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
 				}}
 			/>
 		</Tooltip>
@@ -114,9 +96,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Unchecked">
 			<HourglassTop
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -125,9 +105,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Changes requested">
 			<ThumbDown
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -136,9 +114,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Abandoned">
 			<FlightTakeoff
 				sx={{
-					color: 'purple',
-					position: 'relative',
-					top: '15%'
+					color: 'purple'
 				}}
 			/>
 		</Tooltip>

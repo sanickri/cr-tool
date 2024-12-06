@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DataGrid } from '@mui/x-data-grid'
-import { Alert, Container, Tooltip } from '@mui/material'
+import { Alert, Container, IconButton, Tooltip } from '@mui/material'
 import Link from '@mui/material/Link'
 import DraftsIcon from '@mui/icons-material/HourglassTop'
 import { Star } from '@mui/icons-material'
@@ -12,10 +13,18 @@ const formatDate = (date) => {
 }
 
 const RevisionsDataGrid = ({ revisions, isFetching }) => {
+	const navigate = useNavigate()
 	const [filterModel, setFilterModel] = useState(() => {
 		const savedFilterModel = localStorage.getItem('dataGridFilterModel')
 		return savedFilterModel ? JSON.parse(savedFilterModel) : { items: [] }
 	})
+
+	const handleRowClick = (params) => {
+		navigate(`/detail/${params.row.id}`, {
+			state: { revision: params.row }
+		})
+		console.log(params)
+	}
 
 	const rows = revisions.flat().map((revision) => ({
 		id: revision.id,
@@ -27,10 +36,12 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 		isDraft: revision.isDraft,
 		project: revision.project,
 		projectUrl: revision.projectUrl,
+		projectId: revision.projectId,
 		color: revision.color,
 		iid: revision.iid || '',
 		jiraId: revision.jiraId,
-		following: revision.following
+		following: revision.following,
+		source: revision.source
 	}))
 
 	const columns = [
@@ -39,7 +50,11 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			headerName: '',
 			width: 50,
 			renderCell: (cellValues) => {
-				return mapStatusToIcon[cellValues.row.status]
+				return (
+					<IconButton disabled={true}>
+						{mapStatusToIcon[cellValues.row.status]}
+					</IconButton>
+				)
 			}
 		},
 		{
@@ -155,6 +170,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 						columns={columns}
 						filterModel={filterModel}
 						onFilterModelChange={handleFilterModelChange}
+						onRowClick={handleRowClick}
 						getRowClassName={(params) =>
 							`row-color-${params.row.color}`
 						}

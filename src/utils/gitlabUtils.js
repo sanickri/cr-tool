@@ -1,3 +1,4 @@
+import { Reviews } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import dotenv from 'dotenv'
 dotenv.config()
@@ -305,6 +306,34 @@ async function getGitlabMRbyId(mergeRequestId, projectId) {
 	}
 }
 
+async function getMRComments(projectId, mergeRequestId) {
+	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	try {
+		const response = await fetch(
+			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}/notes`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching merge request comments: ${response.statusText}`
+			)
+		}
+
+		const comments = await response.json()
+		return comments
+	} catch (error) {
+		console.error('Error fetching merge request comments:', error)
+		return []
+	}
+}
+
 async function getTransformedGitlabMRs() {
 	const mergeRequests = await getGitlabMRsFromAllProjects()
 	const followedUsers = JSON.parse(localStorage.getItem('followedUsers'))
@@ -327,7 +356,8 @@ async function getTransformedGitlabMRs() {
 		rowClick: async () => {
 			const mrdet = await getGitlabMRbyId(mr.iid, mr.project_id)
 			console.log('Merge Request:', mrdet)
-		}
+		},
+		source: 'G'
 	}))
 
 	console.log('Transformed Merge Requests:', transformedMRs)
@@ -365,6 +395,81 @@ const getFollowedUsers = async () => {
 	}
 }
 
+const getTransformedMRInfo = async (revision) => {
+	const projects = JSON.parse(localStorage.getItem('gitProjects'))
+	const comments = await getMRComments(revision.project_id, revision.iid)
+	comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+	const project = projects.find(
+		(project) => project.id === revision.project_id
+	)
+	const jiraId = revision.title.match(/\[(\w+-\d+)\]/)?.[1]
+	return {
+		id: revision.iid,
+		title: revision.title,
+		summary: revision.description,
+		status: revision.merge_status,
+		url: revision.web_url,
+		author: {
+			name: revision.author.name,
+			username: revision.author.username
+		},
+		dateModified: revision.updated_at,
+		project: project.path_with_namespace,
+		projectUrl: project.web_url,
+		projectId: project.id,
+		jiraId: jiraId || '',
+		branch: revision.source_branch,
+		reviewers: revision.reviewers,
+		comments: comments || []
+	}
+}
+
+async function getMRDiff(projectId, mergeRequestIid) {
+	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	try {
+		// Fetch the diff for the merge request
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects/${projectId}/merge_requests/${mergeRequestIid}/changes`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching merge request diff: ${response.statusText}`
+			)
+		}
+
+		// Parse the response JSON
+		const data = await response.json()
+
+		// Extract the changes (diffs) for each file
+		const changes = data.changes || []
+		console.log('Changes:', changes)
+		const parsedDiffs = changes.map((file) => ({
+			oldPath: file.old_path,
+			newPath: file.new_path,
+			diff: file.diff,
+			isNewFile: file.new_file,
+			isRenamedFile: file.renamed_file,
+			isDeletedFile: file.deleted_file
+		}))
+
+		console.log('Parsed Diffs:', parsedDiffs)
+		return parsedDiffs
+	} catch (error) {
+		console.error('Error fetching merge request diff:', error)
+		return []
+	}
+}
+
 export {
 	isGitlabTokenValid,
 	gitlabConnect,
@@ -375,5 +480,7 @@ export {
 	getStarredGitlabProjects,
 	getGitlabMRbyId,
 	getTransformedGitlabMRs,
-	getFollowedUsers
+	getFollowedUsers,
+	getTransformedMRInfo,
+	getMRDiff
 }

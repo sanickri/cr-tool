@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
 	AppBar,
 	Box,
@@ -30,6 +31,7 @@ const TopMenu = ({
 	hasGitProjects,
 	setFetchDialogOpen
 }) => {
+	const navigate = useNavigate()
 	const [anchorElNav, setAnchorElNav] = useState(null)
 	const [anchorElUser, setAnchorElUser] = useState(null)
 
@@ -60,6 +62,10 @@ const TopMenu = ({
 
 	const handleOpenFetchDialog = () => {
 		setFetchDialogOpen(true)
+	}
+
+	const handleNavigate = (page) => {
+		navigate(`/${page}`)
 	}
 
 	const handleDisconnect = () => {
@@ -110,7 +116,7 @@ const TopMenu = ({
 						variant="h6"
 						noWrap
 						component="a"
-						href="#app-bar-with-responsive-menu"
+						onClick={() => navigate('/')}
 						sx={{
 							mr: 2,
 							display: { xs: 'none', md: 'flex' },
@@ -121,7 +127,7 @@ const TopMenu = ({
 							textDecoration: 'none'
 						}}
 					>
-						SOMECOOLNAMEHERE
+						CR-TOOL
 					</Typography>
 
 					<Box
@@ -156,23 +162,22 @@ const TopMenu = ({
 							onClose={handleCloseNavMenu}
 							sx={{ display: { xs: 'block', md: 'none' } }}
 						>
-							{pages.map((page) => (
-								<MenuItem
-									key={page}
-									onClick={handleCloseNavMenu}
-								>
-									<Typography sx={{ textAlign: 'center' }}>
-										{page}
-									</Typography>
-								</MenuItem>
-							))}
+							<MenuItem
+								onClick={() => {
+									navigate('/detail')
+								}}
+							>
+								<Typography sx={{ textAlign: 'center' }}>
+									Detail
+								</Typography>
+							</MenuItem>
 						</Menu>
 					</Box>
 					<Typography
 						variant="h5"
 						noWrap
 						component="a"
-						href="#app-bar-with-responsive-menu"
+						onClick={() => navigate('/')}
 						sx={{
 							mr: 2,
 							display: { xs: 'flex', md: 'none' },
@@ -184,7 +189,7 @@ const TopMenu = ({
 							textDecoration: 'none'
 						}}
 					>
-						SOMECOOLNAMEHERE
+						CR-TOOL
 					</Typography>
 					<Box
 						sx={{
@@ -192,15 +197,12 @@ const TopMenu = ({
 							display: { xs: 'none', md: 'flex' }
 						}}
 					>
-						{pages.map((page) => (
-							<Button
-								key={page}
-								onClick={handleCloseNavMenu}
-								sx={{ my: 2, color: 'white', display: 'block' }}
-							>
-								{page}
-							</Button>
-						))}
+						<Button
+							onClick={() => navigate('/detail')}
+							sx={{ my: 2, color: 'white', display: 'block' }}
+						>
+							Detail
+						</Button>
 					</Box>
 					<Box sx={{ flexGrow: 0 }}>
 						<Tooltip title="Open settings">
