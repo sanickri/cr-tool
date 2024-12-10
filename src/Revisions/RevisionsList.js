@@ -8,6 +8,24 @@ import { Star } from '@mui/icons-material'
 import mapStatusToIcon from '../utils/mapStatusToIcon'
 
 const formatDate = (date) => {
+	const isDateToday = (date) => {
+		const today = new Date()
+		return (
+			date.getDate() === today.getDate() &&
+			date.getMonth() === today.getMonth() &&
+			date.getFullYear() === today.getFullYear()
+		)
+	}
+	if (isDateToday(date)) {
+		const options = {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		}
+		return date.toLocaleTimeString(undefined, options)
+	}
 	const options = { year: 'numeric', month: '2-digit', day: '2-digit' }
 	return new Date(date).toLocaleDateString(undefined, options)
 }
@@ -183,6 +201,12 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 							},
 							'& .row-color-yellow': {
 								backgroundColor: '#fff9c4'
+							},
+							'& .row-color-git-green': {
+								backgroundColor: '#bdde87'
+							},
+							'& .row-color-phab-green': {
+								backgroundColor: '#92debe'
 							}
 						}}
 					/>

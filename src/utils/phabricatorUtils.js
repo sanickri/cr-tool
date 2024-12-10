@@ -1,5 +1,6 @@
 import qs from 'qs'
 import dotenv from 'dotenv'
+import { parse } from 'path-browserify'
 dotenv.config()
 
 class PhabricatorAPI {
@@ -109,7 +110,10 @@ class PhabricatorAPI {
 					projectUrl: `${this.config.phabricatorUrl}/diffusion/${project[0].id}`,
 					projectId: project[0].id,
 					jiraId: jiraId ? jiraId[1] : '',
-					color: 'blue',
+					color:
+						revision.fields.status.value === 'accepted'
+							? 'phab-green'
+							: 'blue',
 					source: 'P'
 				}
 			})
@@ -164,31 +168,68 @@ class PhabricatorAPI {
 		if (!commentsArray) {
 			return []
 		}
-		return (
-			commentsArray
-				// Filter only comments with content and action "comment" or meaningful content
-				.filter(
-					(comment) =>
-						comment.content !== null &&
-						comment.content !== undefined &&
-						(comment.action === 'comment' ||
-							comment.content.trim().length > 0)
-				)
-				// Sort by date (newest first)
-				.sort((a, b) => a.dateCreated - b.dateCreated)
-				// Transform to cleaner format
-				.map((comment) => ({
-					id: `${comment.revisionID}-${comment.dateCreated}`,
-					author: {
-						username: comment.username,
-						authorPHID: comment.authorPHID,
-						name: comment.authorName
-					},
-					body: comment.content,
-					created_at: parseInt(comment.dateCreated) * 1000, // Convert to milliseconds
-					action: comment.action
-				}))
-		)
+		return commentsArray
+			.filter(
+				(comment) =>
+					comment.content !== null &&
+					comment.content !== undefined &&
+					(comment.action === 'comment' ||
+						comment.content.trim().length > 0)
+			)
+			.sort((a, b) => a.dateCreated - b.dateCreated)
+			.map((comment) => ({
+				id: `${comment.revisionID}-${comment.dateCreated}`,
+				author: {
+					username: comment.username,
+					authorPHID: comment.authorPHID,
+					name: comment.authorName
+				},
+				body: comment.content,
+				created_at: parseInt(comment.dateCreated) * 1000,
+				action: comment.action
+			}))
+	}
+
+	parseMultipleDiffs(diffText) {
+		const diffs = []
+		const diffLines = diffText.split('\n')
+		let currentDiff = null
+		let currentChanges = []
+
+		for (let i = 0; i < diffLines.length; i++) {
+			const line = diffLines[i] // Start of a new diff
+
+			if (line.startsWith('diff --git')) {
+				// Save previous diff if exists
+				if (currentDiff) {
+					currentDiff.diff = currentChanges.join('\n')
+					diffs.push(currentDiff)
+				} // Initialize new diff
+
+				currentDiff = {
+					old_name: null,
+					new_name: null,
+					diff: null
+				}
+				currentChanges = [] // Parse file paths
+
+				const pathMatch = line.match(/diff --git a\/(.*) b\/(.*)/)
+				if (pathMatch) {
+					currentDiff.old_name = pathMatch[1]
+					currentDiff.new_name = pathMatch[2]
+				}
+			} // Collect changes
+			else if (currentDiff) {
+				currentChanges.push(line)
+			}
+		} // Save the last diff
+
+		if (currentDiff) {
+			currentDiff.diff = currentChanges.join('\n')
+			diffs.push(currentDiff)
+		}
+
+		return diffs
 	}
 
 	async getTransformedRevisionInfo(revisionId) {
@@ -200,8 +241,15 @@ class PhabricatorAPI {
 		)
 		console.log('Project:', project)
 		const jiraId = revision[0].title.match(/\[(\w+-\d+)\]/)
-		const diff = await this.getDiffInfo(revisionId)
-		console.log('Diff:', diff)
+		const diffsInfo = await this.getDiffInfo(revisionId)
+		console.log('Diff:', diffsInfo)
+		let diffs = []
+		diffs = await this.getRawDiff(diffsInfo[0].id)
+
+		console.log('diffs:', diffs)
+		const parsedDiffs = this.parseMultipleDiffs(diffs)
+		console.log('Parsed Diffs:', parsedDiffs)
+
 		const commentsData = await this.getRevisionComments(revisionId)
 		const comments = this.processComments(Object.values(commentsData)[0])
 
@@ -216,6 +264,7 @@ class PhabricatorAPI {
 		)
 		console.log('Comments:', comments)
 		const changes = await this.getDiffChanges(revision[0].phid)
+		console.log('Changes:', changes)
 		const commits = changes[0].attachments.commits
 
 		const reviewers = Object.keys(revision[0].reviewers)
@@ -235,7 +284,7 @@ class PhabricatorAPI {
 				}
 			})
 		)
-		return {
+		const newRevision = {
 			id: revision[0].id,
 			title: revision[0].title,
 			summary: revision[0].summary,
@@ -252,8 +301,11 @@ class PhabricatorAPI {
 			commits: commits.commits,
 			reviewers: reviewerDetails,
 			comments: comments || [],
-			changes: changes || []
+			changes: changes || [],
+			diffs: parsedDiffs
 		}
+		console.log('New Revision:', newRevision)
+		return newRevision
 	}
 }
 

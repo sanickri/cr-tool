@@ -43,9 +43,6 @@ const LandingPage = ({
 	setFetchDialogOpen,
 	fetchDialogOpen
 }) => {
-	// const [gitlabDialogOpen, setGitlabDialogOpen] = useState(false)
-	// const [phabricatorDialogOpen, setPhabricatorDialogOpen] = useState(false)
-	// const [fetchDialogOpen, setFetchDialogOpen] = useState(false)
 	const [expiredDialogOpen, setExpiredDialogOpen] =
 		useState(!isGitlabTokenValid())
 
@@ -71,23 +68,6 @@ const LandingPage = ({
 		process.env.REACT_APP_PHABRICATOR_URL || ''
 	)
 
-	// const [isGitConnected, setIsGitConnected] = useState(
-	// 	localStorage.getItem('gitlabToken') && isGitlabTokenValid()
-	// 		? true
-	// 		: false
-	// )
-	// const [isPhabConnected, setIsPhabConnected] = useState(
-	// 	localStorage.getItem('phabricatorUrl' && 'phabricatorToken')
-	// 		? true
-	// 		: false
-	// )
-
-	// TODO: Update the starting state if you'r adding more data sources
-	// const [revisions, setRevisions] = useState([[], []])
-	// const [projectIds, setProjectIds] = useState('')
-	// const [hasGitProjects, setHasGitProjects] = useState(
-	// 	localStorage.getItem('gitProjects') ? true : false
-	// )
 	const [isFetching, setIsFetching] = useState(false)
 
 	const updateRevisionsForSource = (sourceIndex, newRevs) => {

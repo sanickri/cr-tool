@@ -44,6 +44,9 @@ function GitlabDialog({
 	const handleGitlabConnect = () => {
 		// Handle Gitlab OAuth2 logic
 		localStorage.setItem('gitlabUrl', gitlabUrl)
+		localStorage.setItem('gitlabAppId', gitlabAppId)
+		localStorage.setItem('gitlabSecret', gitlabSecret)
+		localStorage.setItem('gitlabRedirectUri', gitlabRedirectUri)
 		gitlabConnect(gitlabUrl, gitlabAppId, gitlabRedirectUri)
 	}
 

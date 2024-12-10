@@ -110,7 +110,7 @@ const TopMenu = ({
 
 	return (
 		<AppBar position="static">
-			<Container maxWidth="xl">
+			<Container maxWidth={false}>
 				<Toolbar disableGutters>
 					<Typography
 						variant="h6"

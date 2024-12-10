@@ -6,7 +6,9 @@ import {
 	Flaky,
 	ReportGmailerrorred,
 	FlightTakeoff,
-	HourglassTop
+	HourglassTop,
+	CheckCircle,
+	Feedback
 } from '@mui/icons-material'
 import { Tooltip } from '@mui/material'
 
@@ -49,9 +51,18 @@ const mapStatusToIcon = {
 	),
 	mergeable: (
 		<Tooltip title="Mergeable">
-			<Merge
+			<ThumbUp
 				sx={{
 					color: 'green'
+				}}
+			/>
+		</Tooltip>
+	),
+	discussions_not_resolved: (
+		<Tooltip title="Discussion not resolved">
+			<Feedback
+				sx={{
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -92,6 +103,15 @@ const mapStatusToIcon = {
 			/>
 		</Tooltip>
 	),
+	Accepted: (
+		<Tooltip title="Approved">
+			<ThumbUp
+				sx={{
+					color: 'green'
+				}}
+			/>
+		</Tooltip>
+	),
 	'needs-review': (
 		<Tooltip title="Unchecked">
 			<HourglassTop
@@ -115,6 +135,15 @@ const mapStatusToIcon = {
 			<FlightTakeoff
 				sx={{
 					color: 'purple'
+				}}
+			/>
+		</Tooltip>
+	),
+	success: (
+		<Tooltip title="Success">
+			<CheckCircle
+				sx={{
+					color: 'green'
 				}}
 			/>
 		</Tooltip>

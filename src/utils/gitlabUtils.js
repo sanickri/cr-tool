@@ -1,4 +1,3 @@
-import { Reviews } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import dotenv from 'dotenv'
 dotenv.config()
@@ -22,12 +21,35 @@ const isGitlabTokenValid = () => {
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
 	if (!gitlabToken || !gitlabUrl) {
-		return true
+		return false
 	}
 	try {
 		const today = dayjs()
 		const expires = dayjs(gitlabToken.expires)
 		if (today.isAfter(expires)) {
+			// try to refresh the token
+			try {
+				window.location.href = '/'
+				gitlabConnect(
+					localStorage.getItem('gitlabUrl'),
+					localStorage.getItem('gitlabAppId'),
+					localStorage.getItem('gitlabRedirectUri')
+				)
+				const urlParams = new URLSearchParams(window.location.search)
+				const code = urlParams.get('code')
+				let user = localStorage.getItem('gitlabUser')
+				console.log('Token expired, trying to refresh')
+				gitlabCallback(
+					'code',
+					localStorage.getItem('gitlabSecret'),
+					localStorage.getItem('gitlabAppId'),
+					localStorage.getItem('gitlabRedirectUri')
+				)
+				return true
+			} catch (error) {
+				console.error('Error refreshing Gitlab token:', error)
+				return false
+			}
 			console.log('Token expired')
 			return false
 		}
@@ -39,6 +61,14 @@ const isGitlabTokenValid = () => {
 }
 
 const gitlabConnect = (gitlabUrl, gitlabAppId, gitlabRedirectUri) => {
+	console.log(
+		'Gitlab URL:',
+		gitlabUrl,
+		'App ID:',
+		gitlabAppId,
+		'Redirect URI:',
+		gitlabRedirectUri
+	)
 	const gitlabAuthUrl = `${gitlabUrl}/oauth/authorize?client_id=${gitlabAppId}&redirect_uri=${gitlabRedirectUri}&response_type=code&scope=api`
 
 	window.location.href = gitlabAuthUrl
@@ -339,7 +369,7 @@ async function getTransformedGitlabMRs() {
 	const followedUsers = JSON.parse(localStorage.getItem('followedUsers'))
 
 	const transformedMRs = mergeRequests.map((mr) => ({
-		id: mr.id,
+		id: mr.iid,
 		title: mr.title,
 		status: mr.detailed_merge_status,
 		url: mr.web_url,
@@ -350,7 +380,11 @@ async function getTransformedGitlabMRs() {
 		projectUrl: mr.project_url,
 		projectId: mr.project_id,
 		iid: mr.iid || '',
-		color: 'orange',
+		color:
+			mr.detailed_merge_status === 'mergeable' ||
+			mr.detailed_merge_status === 'discussions_not_resolved'
+				? 'git-green'
+				: 'orange',
 		jiraId: mr.title.match(/\[(\w+-\d+)\]/)?.[1],
 		following: followedUsers.some((user) => user.id === mr.author.id),
 		rowClick: async () => {
@@ -396,6 +430,7 @@ const getFollowedUsers = async () => {
 }
 
 const getTransformedMRInfo = async (revision) => {
+	console.log('Not transformed revision:', revision)
 	const projects = JSON.parse(localStorage.getItem('gitProjects'))
 	const comments = await getMRComments(revision.project_id, revision.iid)
 	comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -403,11 +438,14 @@ const getTransformedMRInfo = async (revision) => {
 		(project) => project.id === revision.project_id
 	)
 	const jiraId = revision.title.match(/\[(\w+-\d+)\]/)?.[1]
+	const inlineComments = comments.filter(
+		(comment) => comment.type === 'DiffNote'
+	)
 	return {
 		id: revision.iid,
 		title: revision.title,
 		summary: revision.description,
-		status: revision.merge_status,
+		status: revision.detailed_merge_status,
 		url: revision.web_url,
 		author: {
 			name: revision.author.name,
@@ -420,7 +458,9 @@ const getTransformedMRInfo = async (revision) => {
 		jiraId: jiraId || '',
 		branch: revision.source_branch,
 		reviewers: revision.reviewers,
-		comments: comments || []
+		comments: comments || [],
+		pipeline: revision.pipeline.status,
+		inlineComments: inlineComments || []
 	}
 }
 
