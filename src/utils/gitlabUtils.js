@@ -16,46 +16,60 @@ function getRoleName(accessLevel) {
 	}
 }
 
+const safeJSONParse = (key, defaultValue = null) => {
+	try {
+		const item = localStorage.getItem(key)
+		return item ? JSON.parse(item) : defaultValue
+	} catch (error) {
+		console.error(`Error parsing ${key} from localStorage:`, error)
+		return defaultValue
+	}
+}
+
+const getGitlabToken = () => {
+	const token = safeJSONParse('gitlabToken')
+	if (!token || !token.token) {
+		throw new Error('GitLab token not found or invalid')
+	}
+	return token.token
+}
+
 const isGitlabTokenValid = () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken'))
+	const storedToken = localStorage.getItem('gitlabToken')
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
-	if (!gitlabToken || !gitlabUrl) {
+	if (!storedToken || !gitlabUrl) {
 		return false
 	}
+
 	try {
-		const today = dayjs()
-		const expires = dayjs(gitlabToken.expires)
-		if (today.isAfter(expires)) {
-			// try to refresh the token
-			try {
-				window.location.href = '/'
-				gitlabConnect(
-					localStorage.getItem('gitlabUrl'),
-					localStorage.getItem('gitlabAppId'),
-					localStorage.getItem('gitlabRedirectUri')
-				)
-				const urlParams = new URLSearchParams(window.location.search)
-				const code = urlParams.get('code')
-				let user = localStorage.getItem('gitlabUser')
-				console.log('Token expired, trying to refresh')
-				gitlabCallback(
-					'code',
-					localStorage.getItem('gitlabSecret'),
-					localStorage.getItem('gitlabAppId'),
-					localStorage.getItem('gitlabRedirectUri')
-				)
-				return true
-			} catch (error) {
-				console.error('Error refreshing Gitlab token:', error)
-				return false
-			}
-			console.log('Token expired')
+		const gitlabToken = JSON.parse(storedToken)
+
+		// Add checks for token structure and expires field
+		if (
+			!gitlabToken ||
+			typeof gitlabToken !== 'object' ||
+			!gitlabToken.expires
+		) {
+			console.error(
+				'Invalid GitLab token structure or missing expires field.'
+			)
 			return false
 		}
-		return true
+
+		const today = dayjs()
+		const expires = dayjs(gitlabToken.expires)
+
+		// Add check for valid date parsing
+		if (!expires.isValid()) {
+			console.error('Invalid expires date format in GitLab token.')
+			return false
+		}
+
+		return expires.isAfter(today)
 	} catch (error) {
-		console.error('Error checking Gitlab token:', error)
+		// Catch JSON parsing errors specifically
+		console.error('Error parsing GitLab token from localStorage:', error)
 		return false
 	}
 }
@@ -109,8 +123,8 @@ const gitlabCallback = async (
 	}
 }
 
-async function getMyGitlabUser() {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+const getMyGitlabUser = async () => {
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	if (!gitlabToken || !gitlabUrl) {
 		return console.error('No Gitlab token or URL')
@@ -138,9 +152,9 @@ async function getMyGitlabUser() {
 	}
 }
 
-async function getGitlabProjects() {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
-	const gitlabUser = JSON.parse(localStorage.getItem('gitlabUser'))
+const getGitlabProjects = async () => {
+	const gitlabToken = getGitlabToken()
+	const gitlabUser = safeJSONParse('gitlabUser')
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	const roles = ['developer', 'owner', 'maintainer']
 	let allProjects = []
@@ -193,7 +207,7 @@ async function getGitlabProjects() {
 }
 
 const getProjectsByIds = async (ids) => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	const newIds = ids
 		.split(',')
@@ -231,7 +245,7 @@ const getProjectsByIds = async (ids) => {
 }
 
 const getStarredGitlabProjects = async () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
 	try {
@@ -262,7 +276,7 @@ const getStarredGitlabProjects = async () => {
 }
 
 async function getUnmergedGitlabMergeRequests(projectId) {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	try {
 		const response = await fetch(
 			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests?state=opened`,
@@ -290,7 +304,7 @@ async function getUnmergedGitlabMergeRequests(projectId) {
 }
 
 async function getGitlabMRsFromAllProjects() {
-	const projects = JSON.parse(localStorage.getItem('gitProjects'))
+	const projects = safeJSONParse('gitProjects', [])
 	if (!projects) return []
 
 	const mergeRequests = await Promise.all(
@@ -309,7 +323,7 @@ async function getGitlabMRsFromAllProjects() {
 }
 
 async function getGitlabMRbyId(mergeRequestId, projectId) {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	try {
 		const response = await fetch(
 			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}`,
@@ -337,7 +351,7 @@ async function getGitlabMRbyId(mergeRequestId, projectId) {
 }
 
 async function getMRComments(projectId, mergeRequestId) {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	try {
 		const response = await fetch(
 			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}/notes`,
@@ -366,7 +380,7 @@ async function getMRComments(projectId, mergeRequestId) {
 
 async function getTransformedGitlabMRs() {
 	const mergeRequests = await getGitlabMRsFromAllProjects()
-	const followedUsers = JSON.parse(localStorage.getItem('followedUsers'))
+	const followedUsers = safeJSONParse('followedUsers', [])
 
 	const transformedMRs = mergeRequests.map((mr) => ({
 		id: mr.iid,
@@ -399,9 +413,9 @@ async function getTransformedGitlabMRs() {
 }
 
 const getFollowedUsers = async () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
-	const userId = JSON.parse(localStorage.getItem('gitlabUser')).id
+	const userId = safeJSONParse('gitlabUser')?.id
 
 	try {
 		const response = await fetch(
@@ -431,7 +445,7 @@ const getFollowedUsers = async () => {
 
 const getTransformedMRInfo = async (revision) => {
 	console.log('Not transformed revision:', revision)
-	const projects = JSON.parse(localStorage.getItem('gitProjects'))
+	const projects = safeJSONParse('gitProjects', [])
 	const comments = await getMRComments(revision.project_id, revision.iid)
 	comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 	const project = projects.find(
@@ -511,6 +525,7 @@ async function getMRDiff(projectId, mergeRequestIid) {
 }
 
 export {
+	getRoleName,
 	isGitlabTokenValid,
 	gitlabConnect,
 	gitlabCallback,

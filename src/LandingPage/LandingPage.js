@@ -10,7 +10,7 @@ import {
 	DialogActions
 } from '@mui/material'
 import PhabricatorDialog from './PhabricatorDialog.js'
-import Revisions from '../Revisions/RevisionsList'
+import RevisionsList from '../Revisions/RevisionsList.js'
 import GitlabDialog from './GitlabDialog.js'
 import {
 	isGitlabTokenValid,
@@ -18,12 +18,11 @@ import {
 	getFollowedUsers,
 	getMyGitlabUser,
 	getTransformedGitlabMRs
-} from '../utils/gitlabUtils'
-import PhabricatorAPI from '../utils/phabricatorUtils'
+} from '../utils/gitlabUtils.js'
+import PhabricatorAPI from '../utils/phabricatorUtils.js'
 import DownloadIcon from '@mui/icons-material/Download'
 import FetchProjectsDialog from './FetchProjectsDialog.js'
 import dayjs from 'dayjs'
-import TopMenu from './TopMenu.js'
 
 const LandingPage = ({
 	setHasGitProjects,
@@ -147,72 +146,27 @@ const LandingPage = ({
 	}
 
 	return (
-		<>
+		<div data-testid="landing-page">
+			{isFetching && (
+				<Alert severity="info" color="info">
+					Fetching, please wait...
+				</Alert>
+			)}
 			{isGitConnected && !hasGitProjects && (
-				<>
-					<div
-						style={{
-							textAlign: 'center',
-							marginBottom: '50px',
-							alignContent: 'center'
-						}}
-					>
-						<br />
-						<Alert severity="info" color="warning">
-							Since there can be a lot of projects and fetching
-							can take a while, please fetch your projects now to
-							see your revisions. You can refetch at any time.
-						</Alert>
-						<Alert
-							severity="info"
-							color="warning"
-							sx={{
-								margin: '20px',
-								display: isFetching ? 'block' : 'none'
-							}}
-						>
-							Fetching, please wait...
-						</Alert>
-						<CircularProgress
-							color="warning"
-							sx={{
-								display: isFetching ? 'block' : 'none'
-							}}
-						/>
-						<Button
-							variant="contained"
-							sx={{
-								backgroundColor: '#F05032',
-								'&:hover': {
-									backgroundColor: '#D9432A'
-								},
-								marginTop: '20px'
-							}}
-							onClick={openFetchDialog}
-							startIcon={<DownloadIcon />}
-						>
-							Git Projects
-						</Button>
-					</div>
-				</>
+				<Button
+					variant="contained"
+					color="primary"
+					onClick={() => setFetchDialogOpen(true)}
+				>
+					Fetch Git Projects
+				</Button>
 			)}
-			{(isPhabConnected || isGitConnected) && (
-				<>
-					<Revisions revisions={revisions} isFetching={isFetching} />
-				</>
+			{(isGitConnected || isPhabConnected) && (
+				<RevisionsList revisions={revisions} isFetching={isFetching} />
 			)}
-
-			<FetchProjectsDialog
-				setFetchDialogOpen={setFetchDialogOpen}
-				fetchDialogOpen={fetchDialogOpen}
-				projectIds={projectIds}
-				setProjectIds={setProjectIds}
-				updateRevisionsForSource={updateRevisionsForSource}
-				setHasGitProjects={setHasGitProjects}
-				setIsFetching={setIsFetching}
-			/>
 
 			<GitlabDialog
+				data-testid="gitlab-dialog"
 				setGitlabDialogOpen={setGitlabDialogOpen}
 				gitlabDialogOpen={gitlabDialogOpen}
 				gitlabUrl={gitlabUrl}
@@ -227,6 +181,7 @@ const LandingPage = ({
 				setGitlabExpirationDate={setGitlabExpirationDate}
 			/>
 			<PhabricatorDialog
+				data-testid="phabricator-dialog"
 				setIsPhabConnected={setIsPhabConnected}
 				setPhabricatorDialogOpen={setPhabricatorDialogOpen}
 				phabricatorDialogOpen={phabricatorDialogOpen}
@@ -237,6 +192,15 @@ const LandingPage = ({
 				updateRevisionsForSource={updateRevisionsForSource}
 				setIsFetching={setIsFetching}
 			/>
+			<FetchProjectsDialog
+				data-testid="fetch-projects-dialog"
+				setFetchDialogOpen={setFetchDialogOpen}
+				fetchDialogOpen={fetchDialogOpen}
+				setHasGitProjects={setHasGitProjects}
+				setProjectIds={setProjectIds}
+				updateRevisionsForSource={updateRevisionsForSource}
+				setIsFetching={setIsFetching}
+			/>
 			<Dialog
 				open={expiredDialogOpen}
 				onClose={() => setExpiredDialogOpen(false)}
@@ -244,20 +208,20 @@ const LandingPage = ({
 				aria-describedby="alert-dialog-description"
 			>
 				<DialogTitle id="alert-dialog-title">
-					{'Giltab Token Expired'}
+					{'GitLab Token Expired'}
 				</DialogTitle>
 				<DialogContent>
 					<DialogContentText id="alert-dialog-description">
-						Yout Gitlab token has expired. Please reconnect.
+						Your GitLab token has expired. Please reconnect.
 					</DialogContentText>
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setExpiredDialogOpen(false)}>
-						Ok
+						Close
 					</Button>
 				</DialogActions>
 			</Dialog>
-		</>
+		</div>
 	)
 }
 

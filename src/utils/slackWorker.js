@@ -45,3 +45,6 @@ function checkTimeAndSend() {
 setInterval(checkTimeAndSend, 60000)
 
 console.log('Slack daily reminder worker started!')
+
+// Export functions for testing
+export { sendSlackMessage, checkTimeAndSend, message }

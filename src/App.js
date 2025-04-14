@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
-import LandingPage from './LandingPage/LandingPage'
-import TopMenu from './LandingPage/TopMenu'
-import { isGitlabTokenValid } from './utils/gitlabUtils'
+import LandingPage from './LandingPage/LandingPage.js'
+import TopMenu from './LandingPage/TopMenu.js'
+import { isGitlabTokenValid } from './utils/gitlabUtils.js'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import RevisionDetail from './Revisions/RevisionDetail'
-import RevisionSearch from './Revisions/RevisionSearch'
+import RevisionDetail from './Revisions/RevisionDetail.js'
+import RevisionSearch from './Revisions/RevisionSearch.js'
+import AccountDetails from './AccountDetails/AccountDetails.js'
+import ErrorBoundary from './utils/ErrorBoundary.js'
 
 const App = () => {
 	const [gitlabDialogOpen, setGitlabDialogOpen] = useState(false)
@@ -28,54 +30,84 @@ const App = () => {
 	)
 
 	return (
-		<div className="App">
-			<BrowserRouter>
-				<TopMenu
-					setHasGitProjects={setHasGitProjects}
-					setIsPhabConnected={setIsPhabConnected}
-					setIsGitConnected={setIsGitConnected}
-					setProjectIds={setProjectIds}
-					setRevisions={setRevisions}
-					isGitConnected={isGitConnected}
-					isPhabConnected={isPhabConnected}
-					setGitlabDialogOpen={setGitlabDialogOpen}
-					setPhabricatorDialogOpen={setPhabricatorDialogOpen}
-					hasGitProjects={hasGitProjects}
-					setFetchDialogOpen={setFetchDialogOpen}
-				/>
-				<Routes>
-					<Route
-						path="/"
-						element={
-							<LandingPage
-								setHasGitProjects={setHasGitProjects}
-								setIsPhabConnected={setIsPhabConnected}
-								setIsGitConnected={setIsGitConnected}
-								setProjectIds={setProjectIds}
-								projectIds={projectIds}
-								setRevisions={setRevisions}
-								revisions={revisions}
-								isGitConnected={isGitConnected}
-								isPhabConnected={isPhabConnected}
-								setGitlabDialogOpen={setGitlabDialogOpen}
-								gitlabDialogOpen={gitlabDialogOpen}
-								setPhabricatorDialogOpen={
-									setPhabricatorDialogOpen
-								}
-								phabricatorDialogOpen={phabricatorDialogOpen}
-								hasGitProjects={hasGitProjects}
-								setFetchDialogOpen={setFetchDialogOpen}
-								fetchDialogOpen={fetchDialogOpen}
-							/>
-						}
+		<div className="App" data-testid="app-container">
+			<ErrorBoundary>
+				<BrowserRouter>
+					<TopMenu
+						data-testid="top-menu"
+						setHasGitProjects={setHasGitProjects}
+						setIsPhabConnected={setIsPhabConnected}
+						setIsGitConnected={setIsGitConnected}
+						setProjectIds={setProjectIds}
+						setRevisions={setRevisions}
+						isGitConnected={isGitConnected}
+						isPhabConnected={isPhabConnected}
+						setGitlabDialogOpen={setGitlabDialogOpen}
+						setPhabricatorDialogOpen={setPhabricatorDialogOpen}
+						hasGitProjects={hasGitProjects}
+						setFetchDialogOpen={setFetchDialogOpen}
 					/>
-					<Route
-						path={`/detail/:detailID`}
-						element={<RevisionDetail />}
-					/>
-					<Route path="/detail" element={<RevisionSearch />} />
-				</Routes>
-			</BrowserRouter>
+					<Routes>
+						<Route
+							path="/"
+							element={
+								<ErrorBoundary>
+									<LandingPage
+										data-testid="landing-page"
+										setHasGitProjects={setHasGitProjects}
+										setIsPhabConnected={setIsPhabConnected}
+										setIsGitConnected={setIsGitConnected}
+										setProjectIds={setProjectIds}
+										projectIds={projectIds}
+										setRevisions={setRevisions}
+										revisions={revisions}
+										isGitConnected={isGitConnected}
+										isPhabConnected={isPhabConnected}
+										setGitlabDialogOpen={
+											setGitlabDialogOpen
+										}
+										gitlabDialogOpen={gitlabDialogOpen}
+										setPhabricatorDialogOpen={
+											setPhabricatorDialogOpen
+										}
+										phabricatorDialogOpen={
+											phabricatorDialogOpen
+										}
+										hasGitProjects={hasGitProjects}
+										setFetchDialogOpen={setFetchDialogOpen}
+										fetchDialogOpen={fetchDialogOpen}
+									/>
+								</ErrorBoundary>
+							}
+						/>
+						<Route
+							path={`/detail/:source/:detailID`}
+							element={
+								<ErrorBoundary>
+									<RevisionDetail />
+								</ErrorBoundary>
+							}
+						/>
+						<Route
+							path="/detail"
+							element={
+								<ErrorBoundary>
+									<RevisionSearch />
+								</ErrorBoundary>
+							}
+						/>
+						<Route
+							path="/account"
+							element={
+								<ErrorBoundary>
+									<AccountDetails />
+								</ErrorBoundary>
+							}
+						/>
+						<Route path="*" element={<h1>Not Found</h1>} />
+					</Routes>
+				</BrowserRouter>
+			</ErrorBoundary>
 		</div>
 	)
 }

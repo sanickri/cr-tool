@@ -16,8 +16,7 @@ import {
 import { Logout, Login, Replay } from '@mui/icons-material'
 import MenuIcon from '@mui/icons-material/Menu'
 
-const pages = ['Nothing', 'To', 'See', 'Here', 'Yet']
-
+// TERROR = Tool for Engineering Review Realisation and ORganization
 const TopMenu = ({
 	setHasGitProjects,
 	setIsGitConnected,
@@ -35,8 +34,11 @@ const TopMenu = ({
 	const [anchorElNav, setAnchorElNav] = useState(null)
 	const [anchorElUser, setAnchorElUser] = useState(null)
 
-	const avatarUrl =
-		JSON.parse(localStorage.getItem('gitlabUser'))?.avatar_url || ''
+	const gitlabUserData = localStorage.getItem('gitlabUser')
+	const avatarUrl = gitlabUserData
+		? JSON.parse(gitlabUserData)?.avatar_url || ''
+		: ''
+
 	const handleOpenNavMenu = (event) => {
 		setAnchorElNav(event.currentTarget)
 	}
@@ -62,10 +64,6 @@ const TopMenu = ({
 
 	const handleOpenFetchDialog = () => {
 		setFetchDialogOpen(true)
-	}
-
-	const handleNavigate = (page) => {
-		navigate(`/${page}`)
 	}
 
 	const handleDisconnect = () => {
@@ -109,7 +107,7 @@ const TopMenu = ({
 	}
 
 	return (
-		<AppBar position="static">
+		<AppBar position="static" data-testid="top-menu">
 			<Container maxWidth={false}>
 				<Toolbar disableGutters>
 					<Typography
@@ -124,11 +122,29 @@ const TopMenu = ({
 							fontWeight: 700,
 							letterSpacing: '.3rem',
 							color: 'inherit',
-							textDecoration: 'none'
+							textDecoration: 'none',
+							cursor: 'pointer'
 						}}
+						role="button"
+						aria-label="Go to home page"
+						data-testid="app-title-desktop"
 					>
-						CR-TOOL
+						TERROR
 					</Typography>
+
+					{/* Connection Status Spans for Testing */}
+					<span
+						data-testid="gitlab-connection-status"
+						style={{ display: 'none' }}
+					>
+						{isGitConnected ? 'Connected' : 'Not Connected'}
+					</span>
+					<span
+						data-testid="phabricator-connection-status"
+						style={{ display: 'none' }}
+					>
+						{isPhabConnected ? 'Connected' : 'Not Connected'}
+					</span>
 
 					<Box
 						sx={{
@@ -138,11 +154,12 @@ const TopMenu = ({
 					>
 						<IconButton
 							size="large"
-							aria-label="account of current user"
+							aria-label="open navigation menu"
 							aria-controls="menu-appbar"
 							aria-haspopup="true"
 							onClick={handleOpenNavMenu}
 							color="inherit"
+							data-testid="menu-icon"
 						>
 							<MenuIcon />
 						</IconButton>
@@ -161,16 +178,19 @@ const TopMenu = ({
 							open={Boolean(anchorElNav)}
 							onClose={handleCloseNavMenu}
 							sx={{ display: { xs: 'block', md: 'none' } }}
+							role="menu"
+							data-testid="menu-appbar"
 						>
-							<MenuItem
+							{/* <MenuItem
 								onClick={() => {
 									navigate('/detail')
 								}}
+								role="menuitem"
 							>
 								<Typography sx={{ textAlign: 'center' }}>
 									Detail
 								</Typography>
-							</MenuItem>
+							</MenuItem> */}
 						</Menu>
 					</Box>
 					<Typography
@@ -186,10 +206,14 @@ const TopMenu = ({
 							fontWeight: 700,
 							letterSpacing: '.3rem',
 							color: 'inherit',
-							textDecoration: 'none'
+							textDecoration: 'none',
+							cursor: 'pointer'
 						}}
+						role="button"
+						aria-label="Go to home page"
+						data-testid="app-title-mobile"
 					>
-						CR-TOOL
+						TERROR
 					</Typography>
 					<Box
 						sx={{
@@ -197,25 +221,33 @@ const TopMenu = ({
 							display: { xs: 'none', md: 'flex' }
 						}}
 					>
-						<Button
+						{/* <Button
 							onClick={() => navigate('/detail')}
 							sx={{ my: 2, color: 'white', display: 'block' }}
 						>
 							Detail
-						</Button>
+						</Button> */}
 					</Box>
 					<Box sx={{ flexGrow: 0 }}>
 						<Tooltip title="Open settings">
 							<IconButton
 								onClick={handleOpenUserMenu}
 								sx={{ p: 0 }}
+								aria-label="open settings"
+								aria-controls="user-menu"
+								aria-haspopup="true"
+								role="button"
 							>
-								<Avatar alt="Semy Sharp" src={avatarUrl} />
+								<Avatar
+									alt="User Avatar"
+									src={avatarUrl}
+									role="img"
+								/>
 							</IconButton>
 						</Tooltip>
 						<Menu
 							sx={{ mt: '45px' }}
-							id="menu-appbar"
+							id="user-menu"
 							anchorEl={anchorElUser}
 							anchorOrigin={{
 								vertical: 'top',
@@ -228,12 +260,24 @@ const TopMenu = ({
 							}}
 							open={Boolean(anchorElUser)}
 							onClose={handleCloseUserMenu}
+							role="menu"
+							data-testid="user-menu"
 						>
+							<MenuItem
+								onClick={() => {
+									navigate('/account')
+								}}
+								role="menuitem"
+							>
+								Account
+							</MenuItem>
 							<MenuItem
 								onClick={handleGitConnect}
 								sx={{
 									display: isGitConnected ? 'none' : 'block'
 								}}
+								role="menuitem"
+								data-testid="gitlab-menu-item"
 							>
 								<Login /> Gitlab
 							</MenuItem>
@@ -242,6 +286,8 @@ const TopMenu = ({
 								sx={{
 									display: isPhabConnected ? 'none' : 'block'
 								}}
+								role="menuitem"
+								data-testid="phabricator-menu-item"
 							>
 								<Login /> Phabricator
 							</MenuItem>
@@ -253,6 +299,8 @@ const TopMenu = ({
 											? 'block'
 											: 'none'
 								}}
+								role="menuitem"
+								data-testid="fetch-projects-menu-item"
 							>
 								<Replay /> Git Projects
 							</MenuItem>
@@ -262,6 +310,7 @@ const TopMenu = ({
 								sx={{
 									display: isGitConnected ? 'block' : 'none'
 								}}
+								role="menuitem"
 							>
 								<Logout /> Gitlab
 							</MenuItem>
@@ -270,6 +319,7 @@ const TopMenu = ({
 								sx={{
 									display: isPhabConnected ? 'block' : 'none'
 								}}
+								role="menuitem"
 							>
 								<Logout /> Phabricator
 							</MenuItem>
@@ -281,6 +331,7 @@ const TopMenu = ({
 											? 'block'
 											: 'none'
 								}}
+								role="menuitem"
 							>
 								<Logout /> All
 							</MenuItem>

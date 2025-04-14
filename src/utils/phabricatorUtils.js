@@ -1,6 +1,5 @@
 import qs from 'qs'
 import dotenv from 'dotenv'
-import { parse } from 'path-browserify'
 dotenv.config()
 
 class PhabricatorAPI {
@@ -68,7 +67,7 @@ class PhabricatorAPI {
 	async getDiffInfo(diffId) {
 		const result = await this.callAPI('differential.diff.search', {
 			constraints: {
-				ids: [diffId]
+				phids: [diffId]
 			},
 			attachments: {
 				reviewers: true
@@ -122,7 +121,6 @@ class PhabricatorAPI {
 	}
 
 	async getDiffChanges(diffID) {
-		console.log('Diff PHID:', diffID)
 		const result = await this.callAPI('differential.diff.search', {
 			constraints: {
 				revisionPHIDs: [diffID]
@@ -141,11 +139,69 @@ class PhabricatorAPI {
 		return result
 	}
 
-	async getRevisionComments(revisionId) {
-		const result = await this.callAPI('differential.getrevisioncomments', {
-			ids: [revisionId]
+	async getRevisionComments(revisionId, revisionPHID) {
+		const inlineDetails = await this.callAPI('transaction.search', {
+			objectIdentifier: revisionPHID
 		})
-		return result
+		console.log('Inline Details:', inlineDetails)
+		return inlineDetails
+	}
+
+	async processComments(inlineDetails) {
+		if (!inlineDetails) {
+			return []
+		}
+		console.log('Inline Details:', inlineDetails)
+		const data = inlineDetails.data
+		const comments = data.filter(
+			(comment) =>
+				comment.type === 'comment' &&
+				comment.comments &&
+				comment.comments.length > 0
+		)
+		await Promise.all(
+			comments.map(async (comment) => {
+				const author = await this.getUserInfo(comment.authorPHID)
+				comment.body = comment.comments[0].content.raw
+				comment.id = comment.comments[0].id
+				comment.author = {
+					id: comment.authorPHID,
+					name: author[0].fields.realName,
+					username: author[0].fields.username
+				}
+				comment.created_at = comment.dateCreated * 1000
+			})
+		)
+		comments.sort((a, b) => a.dateCreated - b.dateCreated)
+
+		const inlineComments = data.filter(
+			(comment) =>
+				comment.type === 'inline' &&
+				comment.comments &&
+				comment.comments.length > 0
+		)
+		console.log('Inline Comments:', inlineComments)
+		await Promise.all(
+			inlineComments.map(async (comment) => {
+				const author = await this.getUserInfo(comment.authorPHID)
+				console.log('Author:', author)
+				comment.body = comment.comments[0].content.raw
+				comment.id = comment.comments[0].id
+				comment.author = {
+					id: comment.authorPHID,
+					name: author[0].fields.realName,
+					username: author[0].fields.username
+				}
+				comment.position = {
+					new_line: comment.fields.line,
+					new_path: comment.fields.path
+				}
+				comment.created_at = comment.dateCreated * 1000
+			})
+		)
+		inlineComments.sort((a, b) => a.dateCreated - b.dateCreated)
+		comments.push(...inlineComments)
+		return { comments, inlineComments }
 	}
 
 	async getRevisionCommits(revisionId) {
@@ -164,33 +220,8 @@ class PhabricatorAPI {
 		return result
 	}
 
-	processComments(commentsArray) {
-		if (!commentsArray) {
-			return []
-		}
-		return commentsArray
-			.filter(
-				(comment) =>
-					comment.content !== null &&
-					comment.content !== undefined &&
-					(comment.action === 'comment' ||
-						comment.content.trim().length > 0)
-			)
-			.sort((a, b) => a.dateCreated - b.dateCreated)
-			.map((comment) => ({
-				id: `${comment.revisionID}-${comment.dateCreated}`,
-				author: {
-					username: comment.username,
-					authorPHID: comment.authorPHID,
-					name: comment.authorName
-				},
-				body: comment.content,
-				created_at: parseInt(comment.dateCreated) * 1000,
-				action: comment.action
-			}))
-	}
-
 	parseMultipleDiffs(diffText) {
+		if (!diffText) return []
 		const diffs = []
 		const diffLines = diffText.split('\n')
 		let currentDiff = null
@@ -200,29 +231,34 @@ class PhabricatorAPI {
 			const line = diffLines[i] // Start of a new diff
 
 			if (line.startsWith('diff --git')) {
-				// Save previous diff if exists
 				if (currentDiff) {
 					currentDiff.diff = currentChanges.join('\n')
 					diffs.push(currentDiff)
-				} // Initialize new diff
+				}
 
 				currentDiff = {
-					old_name: null,
-					new_name: null,
-					diff: null
+					oldPath: null,
+					newPath: null,
+					diff: null,
+					isNewFile: false,
+					isDeletedFile: false,
+					isRenamedFile: false
 				}
-				currentChanges = [] // Parse file paths
+				currentChanges = []
 
 				const pathMatch = line.match(/diff --git a\/(.*) b\/(.*)/)
 				if (pathMatch) {
-					currentDiff.old_name = pathMatch[1]
-					currentDiff.new_name = pathMatch[2]
+					currentDiff.oldPath = pathMatch[1]
+					currentDiff.newPath = pathMatch[2]
 				}
-			} // Collect changes
-			else if (currentDiff) {
+
+				if (diffLines[i + 1].startsWith('new file mode')) {
+					currentDiff.isNewFile = true
+				}
+			} else if (currentDiff) {
 				currentChanges.push(line)
 			}
-		} // Save the last diff
+		}
 
 		if (currentDiff) {
 			currentDiff.diff = currentChanges.join('\n')
@@ -241,31 +277,26 @@ class PhabricatorAPI {
 		)
 		console.log('Project:', project)
 		const jiraId = revision[0].title.match(/\[(\w+-\d+)\]/)
-		const diffsInfo = await this.getDiffInfo(revisionId)
-		console.log('Diff:', diffsInfo)
-		let diffs = []
-		diffs = await this.getRawDiff(diffsInfo[0].id)
 
-		console.log('diffs:', diffs)
-		const parsedDiffs = this.parseMultipleDiffs(diffs)
-		console.log('Parsed Diffs:', parsedDiffs)
-
-		const commentsData = await this.getRevisionComments(revisionId)
-		const comments = this.processComments(Object.values(commentsData)[0])
-
-		// Map authorPHID to realName
-		await Promise.all(
-			comments.map(async (comment) => {
-				const author = await this.getUserInfo(comment.author.authorPHID)
-				console.log('Author:', author[0])
-				comment.author.name = author[0]?.fields.realName || ''
-				comment.author.username = author[0]?.fields.username || ''
-			})
+		const commentsData = await this.getRevisionComments(
+			revisionId,
+			revision[0].phid
 		)
+		console.log('Comments Data:', commentsData)
+		const { comments, inlineComments } =
+			await this.processComments(commentsData)
+
 		console.log('Comments:', comments)
 		const changes = await this.getDiffChanges(revision[0].phid)
 		console.log('Changes:', changes)
 		const commits = changes[0].attachments.commits
+
+		const diffsInfo = await this.getDiffInfo(changes[0].phid)
+		console.log('Diffs Info:', diffsInfo)
+		let diffs = []
+		diffs = await this.getRawDiff(diffsInfo[0].id)
+		const parsedDiffs = this.parseMultipleDiffs(diffs)
+		console.log('Parsed Diffs:', parsedDiffs)
 
 		const reviewers = Object.keys(revision[0].reviewers)
 		console.log('Reviewers:', reviewers)
@@ -302,9 +333,10 @@ class PhabricatorAPI {
 			reviewers: reviewerDetails,
 			comments: comments || [],
 			changes: changes || [],
-			diffs: parsedDiffs
+			diffs: parsedDiffs,
+			inlineComments: inlineComments || []
 		}
-		console.log('New Revision:', newRevision)
+		localStorage.setItem('revision', JSON.stringify(newRevision))
 		return newRevision
 	}
 }

@@ -36,7 +36,13 @@ function ConnectionStatus({
 			.getUserInfo(process.env.REACT_APP_PHID)
 			.then((userInfo) => {
 				console.log('Phabricator User:', userInfo)
-				localStorage.setItem('phabUser', JSON.stringify(userInfo))
+				const user = {
+					phid: userInfo[0].phid,
+					name: userInfo[0].fields.realName,
+					username: userInfo[0].fields.username,
+					avatar: userInfo[0].fields.image
+				}
+				localStorage.setItem('phabUser', JSON.stringify(user))
 			})
 			.catch((error) => {
 				console.error('Error fetching user info:', error)
@@ -58,6 +64,7 @@ function ConnectionStatus({
 
 	return (
 		<Dialog
+			data-testid="phabricator-dialog"
 			open={phabricatorDialogOpen}
 			onClose={() => setPhabricatorDialogOpen(false)}
 		>
