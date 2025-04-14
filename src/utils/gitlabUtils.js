@@ -16,28 +16,73 @@ function getRoleName(accessLevel) {
 	}
 }
 
+const safeJSONParse = (key, defaultValue = null) => {
+	try {
+		const item = localStorage.getItem(key)
+		return item ? JSON.parse(item) : defaultValue
+	} catch (error) {
+		console.error(`Error parsing ${key} from localStorage:`, error)
+		return defaultValue
+	}
+}
+
+const getGitlabToken = () => {
+	const token = safeJSONParse('gitlabToken')
+	if (!token || !token.token) {
+		throw new Error('GitLab token not found or invalid')
+	}
+	return token.token
+}
+
 const isGitlabTokenValid = () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken'))
+	const storedToken = localStorage.getItem('gitlabToken')
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
-	if (!gitlabToken || !gitlabUrl) {
-		return true
+	if (!storedToken || !gitlabUrl) {
+		return false
 	}
+
 	try {
-		const today = dayjs()
-		const expires = dayjs(gitlabToken.expires)
-		if (today.isAfter(expires)) {
-			console.log('Token expired')
+		const gitlabToken = JSON.parse(storedToken)
+
+		// Add checks for token structure and expires field
+		if (
+			!gitlabToken ||
+			typeof gitlabToken !== 'object' ||
+			!gitlabToken.expires
+		) {
+			console.error(
+				'Invalid GitLab token structure or missing expires field.'
+			)
 			return false
 		}
-		return true
+
+		const today = dayjs()
+		const expires = dayjs(gitlabToken.expires)
+
+		// Add check for valid date parsing
+		if (!expires.isValid()) {
+			console.error('Invalid expires date format in GitLab token.')
+			return false
+		}
+
+		return expires.isAfter(today)
 	} catch (error) {
-		console.error('Error checking Gitlab token:', error)
+		// Catch JSON parsing errors specifically
+		console.error('Error parsing GitLab token from localStorage:', error)
 		return false
 	}
 }
 
 const gitlabConnect = (gitlabUrl, gitlabAppId, gitlabRedirectUri) => {
+	console.log(
+		'Gitlab URL:',
+		gitlabUrl,
+		'App ID:',
+		gitlabAppId,
+		'Redirect URI:',
+		gitlabRedirectUri
+	)
 	const gitlabAuthUrl = `${gitlabUrl}/oauth/authorize?client_id=${gitlabAppId}&redirect_uri=${gitlabRedirectUri}&response_type=code&scope=api`
 
 	window.location.href = gitlabAuthUrl
@@ -78,8 +123,8 @@ const gitlabCallback = async (
 	}
 }
 
-async function getMyGitlabUser() {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+const getMyGitlabUser = async () => {
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	if (!gitlabToken || !gitlabUrl) {
 		return console.error('No Gitlab token or URL')
@@ -107,9 +152,9 @@ async function getMyGitlabUser() {
 	}
 }
 
-async function getGitlabProjects() {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
-	const gitlabUser = JSON.parse(localStorage.getItem('gitlabUser'))
+const getGitlabProjects = async () => {
+	const gitlabToken = getGitlabToken()
+	const gitlabUser = safeJSONParse('gitlabUser')
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	const roles = ['developer', 'owner', 'maintainer']
 	let allProjects = []
@@ -162,7 +207,7 @@ async function getGitlabProjects() {
 }
 
 const getProjectsByIds = async (ids) => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 	const newIds = ids
 		.split(',')
@@ -200,7 +245,7 @@ const getProjectsByIds = async (ids) => {
 }
 
 const getStarredGitlabProjects = async () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
 
 	try {
@@ -231,7 +276,7 @@ const getStarredGitlabProjects = async () => {
 }
 
 async function getUnmergedGitlabMergeRequests(projectId) {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	try {
 		const response = await fetch(
 			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests?state=opened`,
@@ -259,7 +304,7 @@ async function getUnmergedGitlabMergeRequests(projectId) {
 }
 
 async function getGitlabMRsFromAllProjects() {
-	const projects = JSON.parse(localStorage.getItem('gitProjects'))
+	const projects = safeJSONParse('gitProjects', [])
 	if (!projects) return []
 
 	const mergeRequests = await Promise.all(
@@ -278,7 +323,7 @@ async function getGitlabMRsFromAllProjects() {
 }
 
 async function getGitlabMRbyId(mergeRequestId, projectId) {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	try {
 		const response = await fetch(
 			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}`,
@@ -305,12 +350,40 @@ async function getGitlabMRbyId(mergeRequestId, projectId) {
 	}
 }
 
+async function getMRComments(projectId, mergeRequestId) {
+	const gitlabToken = getGitlabToken()
+	try {
+		const response = await fetch(
+			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}/notes`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching merge request comments: ${response.statusText}`
+			)
+		}
+
+		const comments = await response.json()
+		return comments
+	} catch (error) {
+		console.error('Error fetching merge request comments:', error)
+		return []
+	}
+}
+
 async function getTransformedGitlabMRs() {
 	const mergeRequests = await getGitlabMRsFromAllProjects()
-	const followedUsers = JSON.parse(localStorage.getItem('followedUsers'))
+	const followedUsers = safeJSONParse('followedUsers', [])
 
 	const transformedMRs = mergeRequests.map((mr) => ({
-		id: mr.id,
+		id: mr.iid,
 		title: mr.title,
 		status: mr.detailed_merge_status,
 		url: mr.web_url,
@@ -321,13 +394,18 @@ async function getTransformedGitlabMRs() {
 		projectUrl: mr.project_url,
 		projectId: mr.project_id,
 		iid: mr.iid || '',
-		color: 'orange',
+		color:
+			mr.detailed_merge_status === 'mergeable' ||
+			mr.detailed_merge_status === 'discussions_not_resolved'
+				? 'git-green'
+				: 'orange',
 		jiraId: mr.title.match(/\[(\w+-\d+)\]/)?.[1],
 		following: followedUsers.some((user) => user.id === mr.author.id),
 		rowClick: async () => {
 			const mrdet = await getGitlabMRbyId(mr.iid, mr.project_id)
 			console.log('Merge Request:', mrdet)
-		}
+		},
+		source: 'G'
 	}))
 
 	console.log('Transformed Merge Requests:', transformedMRs)
@@ -335,9 +413,9 @@ async function getTransformedGitlabMRs() {
 }
 
 const getFollowedUsers = async () => {
-	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabToken = getGitlabToken()
 	const gitlabUrl = localStorage.getItem('gitlabUrl')
-	const userId = JSON.parse(localStorage.getItem('gitlabUser')).id
+	const userId = safeJSONParse('gitlabUser')?.id
 
 	try {
 		const response = await fetch(
@@ -365,7 +443,89 @@ const getFollowedUsers = async () => {
 	}
 }
 
+const getTransformedMRInfo = async (revision) => {
+	console.log('Not transformed revision:', revision)
+	const projects = safeJSONParse('gitProjects', [])
+	const comments = await getMRComments(revision.project_id, revision.iid)
+	comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+	const project = projects.find(
+		(project) => project.id === revision.project_id
+	)
+	const jiraId = revision.title.match(/\[(\w+-\d+)\]/)?.[1]
+	const inlineComments = comments.filter(
+		(comment) => comment.type === 'DiffNote'
+	)
+	return {
+		id: revision.iid,
+		title: revision.title,
+		summary: revision.description,
+		status: revision.detailed_merge_status,
+		url: revision.web_url,
+		author: {
+			name: revision.author.name,
+			username: revision.author.username
+		},
+		dateModified: revision.updated_at,
+		project: project.path_with_namespace,
+		projectUrl: project.web_url,
+		projectId: project.id,
+		jiraId: jiraId || '',
+		branch: revision.source_branch,
+		reviewers: revision.reviewers,
+		comments: comments || [],
+		pipeline: revision.pipeline.status,
+		inlineComments: inlineComments || []
+	}
+}
+
+async function getMRDiff(projectId, mergeRequestIid) {
+	const gitlabToken = JSON.parse(localStorage.getItem('gitlabToken')).token
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	try {
+		// Fetch the diff for the merge request
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects/${projectId}/merge_requests/${mergeRequestIid}/changes`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching merge request diff: ${response.statusText}`
+			)
+		}
+
+		// Parse the response JSON
+		const data = await response.json()
+
+		// Extract the changes (diffs) for each file
+		const changes = data.changes || []
+		console.log('Changes:', changes)
+		const parsedDiffs = changes.map((file) => ({
+			oldPath: file.old_path,
+			newPath: file.new_path,
+			diff: file.diff,
+			isNewFile: file.new_file,
+			isRenamedFile: file.renamed_file,
+			isDeletedFile: file.deleted_file
+		}))
+
+		console.log('Parsed Diffs:', parsedDiffs)
+		return parsedDiffs
+	} catch (error) {
+		console.error('Error fetching merge request diff:', error)
+		return []
+	}
+}
+
 export {
+	getRoleName,
 	isGitlabTokenValid,
 	gitlabConnect,
 	gitlabCallback,
@@ -375,5 +535,7 @@ export {
 	getStarredGitlabProjects,
 	getGitlabMRbyId,
 	getTransformedGitlabMRs,
-	getFollowedUsers
+	getFollowedUsers,
+	getTransformedMRInfo,
+	getMRDiff
 }

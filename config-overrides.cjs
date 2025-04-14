@@ -18,5 +18,14 @@ module.exports = function override(config) {
 		  Buffer: ['buffer', 'Buffer'],
 		}),
 	  ])
+
+	// Attempt to fix MUI ESM resolution issue
+	config.module.rules.push({
+		test: /\.m?js$/,
+		resolve: {
+			fullySpecified: false, // Allow imports without file extensions
+		},
+	});
+
 	return config	
 }	

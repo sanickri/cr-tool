@@ -1,3 +1,4 @@
+import React from 'react'
 import {
 	ThumbDown,
 	ThumbUp,
@@ -6,7 +7,9 @@ import {
 	Flaky,
 	ReportGmailerrorred,
 	FlightTakeoff,
-	HourglassTop
+	HourglassTop,
+	CheckCircle,
+	Feedback
 } from '@mui/icons-material'
 import { Tooltip } from '@mui/material'
 
@@ -15,9 +18,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Changes requested">
 			<ThumbDown
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -26,9 +27,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Waiting on approval">
 			<Flaky
 				sx={{
-					color: 'brown',
-					position: 'relative',
-					top: '15%'
+					color: 'brown'
 				}}
 			/>
 		</Tooltip>
@@ -37,9 +36,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Approved">
 			<ThumbUp
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
 				}}
 			/>
 		</Tooltip>
@@ -48,20 +45,25 @@ const mapStatusToIcon = {
 		<Tooltip title="Unchecked">
 			<HourglassTop
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
 	),
 	mergeable: (
 		<Tooltip title="Mergeable">
-			<Merge
+			<ThumbUp
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
+				}}
+			/>
+		</Tooltip>
+	),
+	discussions_not_resolved: (
+		<Tooltip title="Discussion not resolved">
+			<Feedback
+				sx={{
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -70,9 +72,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Conflict">
 			<Merge
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -81,9 +81,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Need rebase">
 			<ReportGmailerrorred
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -92,9 +90,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Broken Status">
 			<HeartBroken
 				sx={{
-					color: 'grey',
-					position: 'relative',
-					top: '15%'
+					color: 'grey'
 				}}
 			/>
 		</Tooltip>
@@ -103,9 +99,16 @@ const mapStatusToIcon = {
 		<Tooltip title="Approved">
 			<ThumbUp
 				sx={{
-					color: 'green',
-					position: 'relative',
-					top: '15%'
+					color: 'green'
+				}}
+			/>
+		</Tooltip>
+	),
+	Accepted: (
+		<Tooltip title="Approved">
+			<ThumbUp
+				sx={{
+					color: 'green'
 				}}
 			/>
 		</Tooltip>
@@ -114,9 +117,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Unchecked">
 			<HourglassTop
 				sx={{
-					color: 'orange',
-					position: 'relative',
-					top: '15%'
+					color: 'orange'
 				}}
 			/>
 		</Tooltip>
@@ -125,9 +126,7 @@ const mapStatusToIcon = {
 		<Tooltip title="Changes requested">
 			<ThumbDown
 				sx={{
-					color: 'red',
-					position: 'relative',
-					top: '15%'
+					color: 'red'
 				}}
 			/>
 		</Tooltip>
@@ -136,9 +135,16 @@ const mapStatusToIcon = {
 		<Tooltip title="Abandoned">
 			<FlightTakeoff
 				sx={{
-					color: 'purple',
-					position: 'relative',
-					top: '15%'
+					color: 'purple'
+				}}
+			/>
+		</Tooltip>
+	),
+	success: (
+		<Tooltip title="Success">
+			<CheckCircle
+				sx={{
+					color: 'green'
 				}}
 			/>
 		</Tooltip>

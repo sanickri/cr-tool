@@ -19,7 +19,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import HelpIcon from '@mui/icons-material/Help'
-import { gitlabConnect } from '../utils/gitlabUtils'
+import { gitlabConnect } from '../utils/gitlabUtils.js'
 import dayjs from 'dayjs'
 
 function GitlabDialog({
@@ -44,11 +44,15 @@ function GitlabDialog({
 	const handleGitlabConnect = () => {
 		// Handle Gitlab OAuth2 logic
 		localStorage.setItem('gitlabUrl', gitlabUrl)
+		localStorage.setItem('gitlabAppId', gitlabAppId)
+		localStorage.setItem('gitlabSecret', gitlabSecret)
+		localStorage.setItem('gitlabRedirectUri', gitlabRedirectUri)
 		gitlabConnect(gitlabUrl, gitlabAppId, gitlabRedirectUri)
 	}
 
 	return (
 		<Dialog
+			data-testid="gitlab-dialog"
 			open={gitlabDialogOpen}
 			onClose={() => setGitlabDialogOpen(false)}
 		>

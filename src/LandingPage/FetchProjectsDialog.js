@@ -4,16 +4,16 @@ import {
 	getProjectsByIds,
 	getStarredGitlabProjects,
 	getTransformedGitlabMRs
-} from '../utils/gitlabUtils'
+} from '../utils/gitlabUtils.js'
 import {
 	Button,
 	TextField,
 	Dialog,
 	DialogTitle,
 	DialogContent,
-	DialogActions
+	DialogActions,
+	Grid
 } from '@mui/material'
-import Grid from '@mui/material/Grid2'
 import DownloadIcon from '@mui/icons-material/Download'
 
 function FetchProjectsDialog({
@@ -75,14 +75,17 @@ function FetchProjectsDialog({
 	}
 
 	return (
-		<Dialog open={fetchDialogOpen} onClose={closeFetchDialog}>
+		<Dialog
+			data-testid="fetch-projects-dialog"
+			open={fetchDialogOpen}
+			onClose={closeFetchDialog}
+		>
 			<DialogTitle>GitLab Projects</DialogTitle>
 			<DialogContent>
 				<Grid container spacing={1}>
 					<Grid size={12}>
 						<TextField
 							label="Project IDs"
-							placeholder="Enter project IDs separated by commas"
 							value={projectIds}
 							onChange={handleInputChange}
 						/>
