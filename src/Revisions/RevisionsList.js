@@ -13,10 +13,12 @@ import {
 	FormControlLabel,
 	InputLabel,
 	Link,
-	Grid
+	Grid,
+	Button
 } from '@mui/material'
 import DraftsIcon from '@mui/icons-material/HourglassTop'
 import { Star } from '@mui/icons-material'
+import PropTypes from 'prop-types'
 import mapStatusToIcon from '../utils/mapStatusToIcon.js'
 
 const formatDate = (date) => {
@@ -62,6 +64,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 		project: 'All',
 		isDraft: false
 	})
+	// eslint-disable-next-line no-unused-vars
 	const [userGroups, setUserGroups] = useState(() => {
 		const savedUserGroups = localStorage.getItem('userGroups')
 		try {
@@ -71,6 +74,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			return []
 		}
 	})
+	// eslint-disable-next-line no-unused-vars
 	const [projectGroups, setProjectGroups] = useState(() => {
 		const savedProjectGroups = localStorage.getItem('projectGroups')
 		try {
@@ -190,11 +194,12 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 		setFilteredRevisions(newFilteredRevisions)
 	}
 
-	const handleRowClick = (params) => {
-		console.log(params)
-		navigate(`/detail/${params.row.source}/${params.row.id}`, {
-			state: { revision: params.row }
-		})
+	const handleFilterModelChange = (newFilterModel) => {
+		setFilterModel(newFilterModel)
+		localStorage.setItem(
+			'dataGridFilterModel',
+			JSON.stringify(newFilterModel)
+		)
 	}
 
 	const safeFilteredRevisions = Array.isArray(filteredRevisions)
@@ -225,7 +230,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			width: 50,
 			renderCell: (cellValues) => {
 				return (
-					<IconButton disabled={true}>
+					<IconButton>
 						{mapStatusToIcon[cellValues.row.status]}
 					</IconButton>
 				)
@@ -242,23 +247,42 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			headerName: 'Title',
 			width: 500,
 			renderCell: (cellValues) => {
-				if (cellValues.row.isDraft) {
-					return (
-						<>
+				const handleTitleClick = (event) => {
+					event.stopPropagation()
+					navigate(
+						`/detail/${cellValues.row.source}/${cellValues.row.id}`,
+						{
+							state: { revision: cellValues.row }
+						}
+					)
+				}
+
+				return (
+					<Button
+						variant="text"
+						onClick={handleTitleClick}
+						sx={{
+							padding: 0,
+							margin: 0,
+							textAlign: 'left',
+							textTransform: 'none',
+							justifyContent: 'flex-start'
+						}}
+					>
+						{cellValues.row.isDraft && (
 							<Tooltip title="This is a draft">
 								<DraftsIcon
 									sx={{
-										color: 'white',
-										position: 'relative',
-										top: '15%'
+										color: 'text.secondary',
+										marginRight: 1,
+										verticalAlign: 'middle'
 									}}
 								/>
 							</Tooltip>
-							{cellValues.row.title}
-						</>
-					)
-				}
-				return cellValues.row.title
+						)}
+						{cellValues.row.title}
+					</Button>
+				)
 			}
 		},
 		{
@@ -322,157 +346,149 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 		}
 	]
 
-	const handleFilterModelChange = (newFilterModel) => {
-		setFilterModel(newFilterModel)
-		localStorage.setItem(
-			'dataGridFilterModel',
-			JSON.stringify(newFilterModel)
-		)
-	}
-
 	const hasRevisionsToShow = safeFilteredRevisions.flat().length > 0
 
 	return (
 		<div data-testid="revisions-list">
-			{!isFetching && !hasRevisionsToShow && (
-				<Alert severity="info" color="warning">
-					No revisions found
-				</Alert>
-			)}
-			{hasRevisionsToShow && (
-				<Container maxWidth={false}>
-					<Grid
-						container
-						spacing={2}
-						sx={{
-							mb: 2,
-							alignItems: 'center',
-							justifyContent: 'flex-start',
-							marginTop: '20px'
-						}}
-					>
-						<Grid item xs sx={{ minWidth: 200, mr: 2 }}>
-							<FormControl fullWidth>
-								<InputLabel id="project-filter-label">
-									{' '}
-									Project{' '}
-								</InputLabel>
-								<Select
-									labelId="project-filter-label"
-									id="project-filter-select"
-									value={filters.project}
-									onChange={(e) =>
-										handleFiltersChange({
-											...filters,
-											project: e.target.value
-										})
-									}
-									displayEmpty
-									label="Project"
-								>
-									{projects.map((project, index) => (
-										<MenuItem key={index} value={project}>
-											{project}
-										</MenuItem>
-									))}
-								</Select>
-							</FormControl>
-						</Grid>
-
-						<Grid item xs sx={{ minWidth: 200, mr: 2 }}>
-							<FormControl fullWidth>
-								<InputLabel id="author-filter-label">
-									{' '}
-									Author{' '}
-								</InputLabel>
-								<Select
-									labelId="author-filter-label"
-									id="author-filter-select"
-									value={filters.author}
-									onChange={(e) =>
-										handleFiltersChange({
-											...filters,
-											author: e.target.value
-										})
-									}
-									label="Author"
-								>
-									{authors.map((author, index) => (
-										<MenuItem key={index} value={author}>
-											{author}
-										</MenuItem>
-									))}
-								</Select>
-							</FormControl>
-						</Grid>
-
-						<Grid item xs>
-							<FormControlLabel
-								control={
-									<Checkbox
-										id="draft-filter-checkbox"
-										checked={filters.isDraft}
-										onChange={(e) =>
-											handleFiltersChange({
-												...filters,
-												isDraft: e.target.checked
-											})
-										}
-									/>
-								}
-								label="Draft"
-								labelPlacement="end"
-								htmlFor="draft-filter-checkbox"
-							/>
-						</Grid>
-					</Grid>
-					<Grid
-						container
-						spacing={2}
-						sx={{
-							mb: 2,
-							alignItems: 'center',
-							justifyContent: 'flex-start'
-						}}
-					>
-						<FormControl sx={{ minWidth: 200, mr: 2 }}>
-							<InputLabel id="user-group-filter-label">
+			<Container maxWidth={false}>
+				<Grid
+					container
+					spacing={2}
+					sx={{
+						mb: 2,
+						alignItems: 'center',
+						justifyContent: 'flex-start',
+						marginTop: '20px'
+					}}
+				>
+					<Grid item xs sx={{ minWidth: 200, mr: 2 }}>
+						<FormControl fullWidth>
+							<InputLabel id="project-filter-label">
 								{' '}
-								User group{' '}
+								Project{' '}
 							</InputLabel>
 							<Select
-								labelId="user-group-filter-label"
-								id="user-group-filter-select"
-								value={groupFilters.userGroups}
-								onChange={(e) => {
-									console.log(
-										'Selected user group:',
-										e.target.value
-									)
-									handleSetUserGroupFilters({
-										...groupFilters,
-										userGroups: e.target.value
+								labelId="project-filter-label"
+								id="project-filter-select"
+								value={filters.project}
+								onChange={(e) =>
+									handleFiltersChange({
+										...filters,
+										project: e.target.value
 									})
-								}}
+								}
 								displayEmpty
-								label="User group"
+								label="Project"
 							>
-								<MenuItem value="None">None</MenuItem>
-								{userGroups.map((group, index) => (
-									<MenuItem key={index} value={group.name}>
-										{group.name}
+								{projects.map((project, index) => (
+									<MenuItem key={index} value={project}>
+										{project}
 									</MenuItem>
 								))}
 							</Select>
 						</FormControl>
 					</Grid>
 
+					<Grid item xs sx={{ minWidth: 200, mr: 2 }}>
+						<FormControl fullWidth>
+							<InputLabel id="author-filter-label">
+								{' '}
+								Author{' '}
+							</InputLabel>
+							<Select
+								labelId="author-filter-label"
+								id="author-filter-select"
+								value={filters.author}
+								onChange={(e) =>
+									handleFiltersChange({
+										...filters,
+										author: e.target.value
+									})
+								}
+								label="Author"
+							>
+								{authors.map((author, index) => (
+									<MenuItem key={index} value={author}>
+										{author}
+									</MenuItem>
+								))}
+							</Select>
+						</FormControl>
+					</Grid>
+
+					<Grid item xs>
+						<FormControlLabel
+							control={
+								<Checkbox
+									id="draft-filter-checkbox"
+									checked={filters.isDraft}
+									unchecked={!filters.isDraft}
+									onChange={(e) =>
+										handleFiltersChange({
+											...filters,
+											isDraft: e.target.checked
+										})
+									}
+								/>
+							}
+							label="Show Drafts"
+							labelPlacement="end"
+							htmlFor="draft-filter-checkbox"
+						/>
+					</Grid>
+				</Grid>
+				<Grid
+					container
+					spacing={2}
+					sx={{
+						mb: 2,
+						alignItems: 'center',
+						justifyContent: 'flex-start'
+					}}
+				>
+					<FormControl sx={{ minWidth: 200, mr: 2 }}>
+						<InputLabel id="user-group-filter-label">
+							{' '}
+							User group{' '}
+						</InputLabel>
+						<Select
+							labelId="user-group-filter-label"
+							id="user-group-filter-select"
+							value={groupFilters.userGroups}
+							onChange={(e) => {
+								console.log(
+									'Selected user group:',
+									e.target.value
+								)
+								handleSetUserGroupFilters({
+									...groupFilters,
+									userGroups: e.target.value
+								})
+							}}
+							displayEmpty
+							label="User group"
+						>
+							<MenuItem value="None">None</MenuItem>
+							{userGroups.map((group, index) => (
+								<MenuItem key={index} value={group.name}>
+									{group.name}
+								</MenuItem>
+							))}
+						</Select>
+					</FormControl>
+				</Grid>
+
+				{!isFetching && !hasRevisionsToShow && (
+					<Alert severity="info" color="warning">
+						No revisions found for the selected filters.
+					</Alert>
+				)}
+				{hasRevisionsToShow && (
 					<DataGrid
 						rows={rows}
 						columns={columns}
 						filterModel={filterModel}
 						onFilterModelChange={handleFilterModelChange}
-						onRowClick={handleRowClick}
 						getRowClassName={(params) =>
 							`row-color-${params.row.color}`
 						}
@@ -494,10 +510,15 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 							}
 						}}
 					/>
-				</Container>
-			)}
+				)}
+			</Container>
 		</div>
 	)
+}
+
+RevisionsDataGrid.propTypes = {
+	revisions: PropTypes.array.isRequired,
+	isFetching: PropTypes.bool.isRequired
 }
 
 export default RevisionsDataGrid

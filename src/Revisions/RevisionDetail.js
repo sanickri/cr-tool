@@ -31,7 +31,8 @@ import {
 	Modal,
 	Grid,
 	Tabs,
-	Tab
+	Tab,
+	Fab
 } from '@mui/material'
 import {
 	Person,
@@ -43,11 +44,18 @@ import {
 	ExpandMore,
 	ThumbUp,
 	AddComment,
-	ThumbDown
+	ThumbDown,
+	KeyboardArrowUp
 } from '@mui/icons-material'
 import { Diff, Hunk, parseDiff } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import mapStatusToIcon from '../utils/mapStatusToIcon.js'
+
+const MAX_DIFF_LINES_FOR_EXPAND = 200
+const COMMENT_MAX_WIDTH =
+	localStorage.getItem('diffView') === 'unified' ? '600px' : '400px'
+const COMMENT_MIN_WIDTH =
+	localStorage.getItem('diffView') === 'unified' ? '600px' : '400px'
 
 const IS_READ_ONLY = true
 
@@ -78,9 +86,10 @@ const RevisionDetail = () => {
 	})
 	const [visibleComments, setVisibleComments] = useState({})
 	const [expandedCommentSections, setExpandedCommentSections] = useState({})
+	const [expandedAccordions, setExpandedAccordions] = useState({})
 	// get source from url
 	const source = location.pathname.split('/')[2]
-	const [user, setUser] = useState(() => {
+	const [user] = useState(() => {
 		try {
 			if (source === 'G') {
 				const gitlabUser = localStorage.getItem('gitlabUser')
@@ -96,10 +105,37 @@ const RevisionDetail = () => {
 		}
 	})
 	const [activeTab, setActiveTab] = useState(0)
+	// State for scroll-to-top button visibility
+	const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 
 	// Handle tab change
 	const handleTabChange = (event, newValue) => {
 		setActiveTab(newValue)
+	}
+
+	// Effect for scroll-to-top button visibility
+	useEffect(() => {
+		const checkScrollTop = () => {
+			if (
+				!showScrollTopButton &&
+				window.pageYOffset > window.innerHeight
+			) {
+				setShowScrollTopButton(true)
+			} else if (
+				showScrollTopButton &&
+				window.pageYOffset <= window.innerHeight
+			) {
+				setShowScrollTopButton(false)
+			}
+		}
+
+		window.addEventListener('scroll', checkScrollTop)
+		return () => window.removeEventListener('scroll', checkScrollTop)
+	}, [showScrollTopButton])
+
+	// Function to scroll to top
+	const scrollToTop = () => {
+		window.scrollTo({ top: 0, behavior: 'smooth' })
 	}
 
 	useEffect(() => {
@@ -117,6 +153,17 @@ const RevisionDetail = () => {
 					)
 					setDiffs(diffContent)
 					setInlineComments(transformedMr.inlineComments)
+
+					// Calculate initial accordion expansion state after diffs are fetched
+					const initialExpansionState = {}
+					diffContent.forEach((file, index) => {
+						const lineCount =
+							(file.diff.match(/\n/g) || []).length + 1
+						if (lineCount <= MAX_DIFF_LINES_FOR_EXPAND) {
+							initialExpansionState[index] = true
+						}
+					})
+					setExpandedAccordions(initialExpansionState)
 				} else if (location.state?.revision?.source === 'P') {
 					const { id } = location.state.revision
 					const phabricatorConfig = {
@@ -130,6 +177,17 @@ const RevisionDetail = () => {
 						await phabricatorAPI.getTransformedRevisionInfo(id)
 					setRevision(transformedMr)
 					setDiffs(transformedMr.diffs)
+
+					// Calculate initial accordion expansion state for Phabricator diffs
+					const initialPhabExpansionState = {}
+					transformedMr.diffs.forEach((file, index) => {
+						const lineCount =
+							(file.diff.match(/\n/g) || []).length + 1
+						if (lineCount <= MAX_DIFF_LINES_FOR_EXPAND) {
+							initialPhabExpansionState[index] = true
+						}
+					})
+					setExpandedAccordions(initialPhabExpansionState)
 				}
 				if (!mr) {
 					console.error('Error fetching merge request')
@@ -149,7 +207,7 @@ const RevisionDetail = () => {
 		return diff
 	}
 
-	const handleDiffViewChange = (event) => {
+	const handleDiffViewChange = () => {
 		if (diffView === 'split') {
 			setDiffView('unified')
 			localStorage.setItem('diffView', 'unified')
@@ -218,6 +276,57 @@ const RevisionDetail = () => {
 		}))
 	}
 
+	const handleAccordionChange = (panelIndex) => (event, isExpanded) => {
+		setExpandedAccordions((prev) => ({
+			...prev,
+			[panelIndex]: isExpanded
+		}))
+	}
+
+	// Function to expand all accordions
+	const expandAllAccordions = () => {
+		const allExpanded = {}
+		diffs.forEach((_, index) => {
+			allExpanded[index] = true
+		})
+		setExpandedAccordions(allExpanded)
+	}
+
+	// Function to collapse all accordions
+	const collapseAllAccordions = () => {
+		setExpandedAccordions({})
+	}
+
+	// Function to handle click on inline comment in the list
+	const handleInlineCommentClick = (comment) => {
+		const filePath = comment.position.new_path
+		// Find the index of the file in the diffs array
+		const fileIndex = diffs.findIndex(
+			(diff) => diff.newPath === filePath || diff.oldPath === filePath
+		)
+
+		if (fileIndex !== -1) {
+			// Expand the corresponding accordion
+			setExpandedAccordions((prev) => ({
+				...prev,
+				[fileIndex]: true
+			}))
+
+			// Scroll to the accordion
+			// Use a slight delay to ensure the accordion has started expanding
+			setTimeout(() => {
+				const targetId = `diff-${filePath}`
+				const element = document.getElementById(targetId)
+				if (element) {
+					element.scrollIntoView({
+						behavior: 'smooth',
+						block: 'start'
+					})
+				}
+			}, 100) // 100ms delay
+		}
+	}
+
 	const renderGutter = (line, fileId) => {
 		const lineNumber = line.change?.lineNumber
 		const hasComments = inlineComments.some(
@@ -235,15 +344,15 @@ const RevisionDetail = () => {
 					comment.position.new_line === line.change.newLineNumber)
 		)
 
-		// Sort comments by date, newest first
+		// Sort comments by date, oldest first
 		const sortedComments = [...commentsForLine].sort(
-			(a, b) => new Date(b.created_at) - new Date(a.created_at)
+			(a, b) => new Date(a.created_at) - new Date(b.created_at)
 		)
 
 		// Show only 5 newest comments by default
-		const displayedComments = expandedCommentSections[key]
-			? sortedComments
-			: sortedComments.slice(0, 5)
+		// const displayedComments = expandedCommentSections[key]
+		// 	? sortedComments
+		// 	: sortedComments.slice(0, 5)
 
 		const hasMoreComments = sortedComments.length > 5
 
@@ -306,7 +415,9 @@ const RevisionDetail = () => {
 							boxShadow: 3,
 							borderRadius: 1,
 							p: 1,
-							ml: 1
+							ml: 1,
+							minWidth: COMMENT_MIN_WIDTH,
+							maxWidth: COMMENT_MAX_WIDTH
 						}}
 					>
 						{sortedComments.slice(0, 5).map((comment, index) => (
@@ -329,7 +440,13 @@ const RevisionDetail = () => {
 								>
 									{comment.author.name} commented:
 								</Typography>
-								<Typography variant="body2">
+								<Typography
+									variant="body2"
+									sx={{
+										overflowWrap: 'break-word',
+										whiteSpace: 'pre-wrap'
+									}}
+								>
 									{comment.body}
 								</Typography>
 								<Typography
@@ -376,7 +493,13 @@ const RevisionDetail = () => {
 									>
 										{comment.author.name} commented:
 									</Typography>
-									<Typography variant="body2">
+									<Typography
+										variant="body2"
+										sx={{
+											overflowWrap: 'break-word',
+											whiteSpace: 'pre-wrap'
+										}}
+									>
 										{comment.body}
 									</Typography>
 									<Typography
@@ -585,354 +708,415 @@ const RevisionDetail = () => {
 						</Card>
 					</Grid>
 				</Grid>
-				<Grid item xs={12}>
-					<Card>
-						{/* Tabs for Comments */}
-						<Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-							<Tabs
-								value={activeTab}
-								onChange={handleTabChange}
-								aria-label="comments tabs"
+				{/* Wrap Comments and Changed Files in a Grid Container */}
+				<Grid item xs={12} container spacing={3}>
+					{/* Comments Card */}
+					<Grid item xs={12} md={8}>
+						<Card>
+							{/* Tabs for Comments */}
+							<Box
+								sx={{ borderBottom: 1, borderColor: 'divider' }}
 							>
-								<Tab label="Thread Comments" />
-								<Tab label="Inline Comments" />
-							</Tabs>
-						</Box>
+								<Tabs
+									value={activeTab}
+									onChange={handleTabChange}
+									aria-label="comments tabs"
+								>
+									<Tab label="Thread Comments" />
+									<Tab label="Inline Comments" />
+								</Tabs>
+							</Box>
 
-						{/* Thread Comments Panel */}
-						{activeTab === 0 && (
-							<CardContent>
-								<List>
-									{revision.comments?.map(
-										(comment, index) => {
-											// Only show regular comments in this section
-											if (
-												comment.type !== 'DiffNote' &&
-												comment.type !== 'inline'
-											) {
-												// For regular thread comments
-												const commentKey =
-													'thread-comments'
-												const threadComments =
-													revision.comments
-														.filter(
-															(c) =>
-																c.type !==
-																	'DiffNote' &&
-																c.type !==
-																	'inline'
-														)
-														.sort(
-															(a, b) =>
-																new Date(
-																	b.created_at
-																) -
-																new Date(
-																	a.created_at
-																)
-														)
-
-												// Display logic remains the same
-												const newestFiveComments =
-													threadComments.slice(0, 5)
-												const olderComments =
-													threadComments.slice(5)
-												const hasMoreThreadComments =
-													olderComments.length > 0
-
-												const isInNewestGroup =
-													newestFiveComments.includes(
-														comment
-													)
-												const isInOlderGroup =
-													expandedCommentSections[
-														commentKey
-													] &&
-													olderComments.includes(
-														comment
-													)
-
+							{/* Thread Comments Panel */}
+							{activeTab === 0 && (
+								<CardContent>
+									<List>
+										{revision.comments?.map(
+											(comment, index) => {
+												// Only show regular comments in this section
 												if (
-													!isInNewestGroup &&
-													!isInOlderGroup
-												)
-													return null
-
-												const isLastOfNewestGroup =
-													comment ===
-													newestFiveComments[
-														newestFiveComments.length -
-															1
-													]
-
-												return (
-													<React.Fragment key={index}>
-														<ListItem>
-															<ListItemAvatar>
-																<Avatar>
-																	<Comment />
-																</Avatar>
-															</ListItemAvatar>
-															<ListItemText
-																primary={
-																	<div
-																		dangerouslySetInnerHTML={{
-																			__html: DOMPurify.sanitize(
-																				marked(
-																					comment.body
-																				)
-																			)
-																		}}
-																	/>
-																}
-																secondary={
-																	comment
-																		.author
-																		.name +
-																	' - ' +
-																	comment
-																		.author
-																		.username +
-																	' - ' +
-																	formatDate(
-																		new Date(
-																			comment.created_at
-																		)
+													comment.type !==
+														'DiffNote' &&
+													comment.type !== 'inline'
+												) {
+													// For regular thread comments
+													const commentKey =
+														'thread-comments'
+													const threadComments =
+														revision.comments
+															.filter(
+																(c) =>
+																	c.type !==
+																		'DiffNote' &&
+																	c.type !==
+																		'inline'
+															)
+															.sort(
+																(a, b) =>
+																	new Date(
+																		b.created_at
+																	) -
+																	new Date(
+																		a.created_at
 																	)
-																}
-															/>
-														</ListItem>
-														{isLastOfNewestGroup &&
-															hasMoreThreadComments && (
-																<ListItem>
-																	<Button
-																		variant="text"
-																		color="primary"
-																		onClick={() =>
-																			toggleExpandComments(
-																				commentKey
-																			)
-																		}
-																		sx={{
-																			mx: 'auto'
-																		}}
-																	>
-																		{expandedCommentSections[
-																			commentKey
-																		]
-																			? 'Show fewer comments'
-																			: `Show ${olderComments.length} more comments`}
-																	</Button>
-																</ListItem>
-															)}
-													</React.Fragment>
-												)
-											}
-											return null // Skip inline comments in this tab
-										}
-									)}
-								</List>
-							</CardContent>
-						)}
+															)
 
-						{/* Inline Comments Panel */}
-						{activeTab === 1 && (
-							<CardContent>
-								<List>
-									{revision.comments?.map(
-										(comment, index) => {
-											// For inline comments only
-											if (
-												comment.type === 'DiffNote' ||
-												comment.type === 'inline'
-											) {
-												const commentKey = `inline-${comment.position.new_path}-${comment.position.new_line}`
-												const inlineFileComments =
-													revision.comments
-														.filter(
-															(c) =>
-																(c.type ===
-																	'DiffNote' ||
-																	c.type ===
-																		'inline') &&
-																c.position
-																	.new_path ===
-																	comment
-																		.position
-																		.new_path &&
-																c.position
-																	.new_line ===
-																	comment
-																		.position
-																		.new_line
+													// Display logic remains the same
+													const newestFiveComments =
+														threadComments.slice(
+															0,
+															5
 														)
-														.sort(
-															(a, b) =>
-																new Date(
-																	b.created_at
-																) -
-																new Date(
-																	a.created_at
-																)
+													const olderComments =
+														threadComments.slice(5)
+													const hasMoreThreadComments =
+														olderComments.length > 0
+
+													const isInNewestGroup =
+														newestFiveComments.includes(
+															comment
+														)
+													const isInOlderGroup =
+														expandedCommentSections[
+															commentKey
+														] &&
+														olderComments.includes(
+															comment
 														)
 
-												// Display logic remains the same
-												const newestFiveComments =
-													inlineFileComments.slice(
-														0,
-														5
+													if (
+														!isInNewestGroup &&
+														!isInOlderGroup
 													)
-												const olderComments =
-													inlineFileComments.slice(5)
-												const hasMoreInlineComments =
-													olderComments.length > 0
+														return null
 
-												const isInNewestGroup =
-													newestFiveComments.includes(
-														comment
-													)
-												const isInOlderGroup =
-													expandedCommentSections[
-														commentKey
-													] &&
-													olderComments.includes(
-														comment
-													)
+													const isLastOfNewestGroup =
+														comment ===
+														newestFiveComments[
+															newestFiveComments.length -
+																1
+														]
 
-												if (
-													!isInNewestGroup &&
-													!isInOlderGroup
-												)
-													return null
-
-												const isLastOfNewestGroup =
-													comment ===
-													newestFiveComments[
-														newestFiveComments.length -
-															1
-													]
-
-												return (
-													<React.Fragment key={index}>
-														<ListItem>
-															<ListItemAvatar>
-																<Avatar
-																	onClick={() => {
-																		toggleCommentVisibility(
-																			comment
-																				.position
-																				.new_line,
-																			comment
-																				.position
-																				.new_path
-																		)
-																	}}
-																>
-																	<Comment color="primary" />
-																</Avatar>
-															</ListItemAvatar>
-															<ListItemText
-																primary={
-																	<div
-																		dangerouslySetInnerHTML={{
-																			__html: DOMPurify.sanitize(
-																				marked(
-																					comment.body
+													return (
+														<React.Fragment
+															key={index}
+														>
+															<ListItem>
+																<ListItemAvatar>
+																	<Avatar>
+																		<Comment />
+																	</Avatar>
+																</ListItemAvatar>
+																<ListItemText
+																	primary={
+																		<div
+																			dangerouslySetInnerHTML={{
+																				__html: DOMPurify.sanitize(
+																					marked(
+																						comment.body
+																					)
 																				)
-																			)
-																		}}
-																	/>
-																}
-																secondary={
-																	<>
-																		{
-																			comment
-																				.author
-																				.name
-																		}{' '}
-																		-{' '}
-																		{
-																			comment
-																				.author
-																				.username
-																		}{' '}
-																		-{' '}
-																		{formatDate(
+																			}}
+																		/>
+																	}
+																	secondary={
+																		comment
+																			.author
+																			.name +
+																		' - ' +
+																		comment
+																			.author
+																			.username +
+																		' - ' +
+																		formatDate(
 																			new Date(
 																				comment.created_at
 																			)
-																		)}
-																		<br />
-																		<Typography
-																			variant="caption"
+																		)
+																	}
+																/>
+															</ListItem>
+															{isLastOfNewestGroup &&
+																hasMoreThreadComments && (
+																	<ListItem>
+																		<Button
+																			variant="text"
 																			color="primary"
-																			onClick={() => {
-																				toggleCommentVisibility(
-																					comment
-																						.position
-																						.new_line,
+																			onClick={() =>
+																				toggleExpandComments(
+																					commentKey
+																				)
+																			}
+																			sx={{
+																				mx: 'auto'
+																			}}
+																		>
+																			{expandedCommentSections[
+																				commentKey
+																			]
+																				? 'Show fewer comments'
+																				: `Show ${olderComments.length} more comments`}
+																		</Button>
+																	</ListItem>
+																)}
+														</React.Fragment>
+													)
+												}
+												return null // Skip inline comments in this tab
+											}
+										)}
+									</List>
+								</CardContent>
+							)}
+
+							{/* Inline Comments Panel */}
+							{activeTab === 1 && (
+								<CardContent>
+									<List>
+										{revision.comments?.map(
+											(comment, index) => {
+												// For inline comments only
+												if (
+													comment.type ===
+														'DiffNote' ||
+													comment.type === 'inline'
+												) {
+													const commentKey = `inline-${comment.position.new_path}-${comment.position.new_line}`
+													const inlineFileComments =
+														revision.comments
+															.filter(
+																(c) =>
+																	(c.type ===
+																		'DiffNote' ||
+																		c.type ===
+																			'inline') &&
+																	c.position
+																		.new_path ===
+																		comment
+																			.position
+																			.new_path &&
+																	c.position
+																		.new_line ===
+																		comment
+																			.position
+																			.new_line
+															)
+															.sort(
+																(a, b) =>
+																	new Date(
+																		b.created_at
+																	) -
+																	new Date(
+																		a.created_at
+																	)
+															)
+
+													// Display logic remains the same
+													const newestFiveComments =
+														inlineFileComments.slice(
+															0,
+															5
+														)
+													const olderComments =
+														inlineFileComments.slice(
+															5
+														)
+													const hasMoreInlineComments =
+														olderComments.length > 0
+
+													const isInNewestGroup =
+														newestFiveComments.includes(
+															comment
+														)
+													const isInOlderGroup =
+														expandedCommentSections[
+															commentKey
+														] &&
+														olderComments.includes(
+															comment
+														)
+
+													if (
+														!isInNewestGroup &&
+														!isInOlderGroup
+													)
+														return null
+
+													const isLastOfNewestGroup =
+														comment ===
+														newestFiveComments[
+															newestFiveComments.length -
+																1
+														]
+
+													return (
+														<React.Fragment
+															key={index}
+														>
+															<ListItem
+																button
+																onClick={() =>
+																	handleInlineCommentClick(
+																		comment
+																	)
+																}
+															>
+																<ListItemAvatar>
+																	<Avatar>
+																		<Comment color="primary" />
+																	</Avatar>
+																</ListItemAvatar>
+																<ListItemText
+																	primary={
+																		<div
+																			dangerouslySetInnerHTML={{
+																				__html: DOMPurify.sanitize(
+																					marked(
+																						comment.body
+																					)
+																				)
+																			}}
+																		/>
+																	}
+																	secondary={
+																		<>
+																			{
+																				comment
+																					.author
+																					.name
+																			}{' '}
+																			-{' '}
+																			{
+																				comment
+																					.author
+																					.username
+																			}{' '}
+																			-{' '}
+																			{formatDate(
+																				new Date(
+																					comment.created_at
+																				)
+																			)}
+																			<br />
+																			<Typography
+																				variant="caption"
+																				color="primary"
+																				sx={{
+																					cursor: 'pointer'
+																				}}
+																			>
+																				File:{' '}
+																				{
 																					comment
 																						.position
 																						.new_path
+																				}
+
+																				,
+																				Line:{' '}
+																				{
+																					comment
+																						.position
+																						.new_line
+																				}
+																			</Typography>
+																		</>
+																	}
+																/>
+															</ListItem>
+															{isLastOfNewestGroup &&
+																hasMoreInlineComments && (
+																	<ListItem>
+																		<Button
+																			variant="text"
+																			color="primary"
+																			onClick={() =>
+																				toggleExpandComments(
+																					commentKey
 																				)
-																				// Optionally scroll to the diff view
-																			}}
+																			}
 																			sx={{
-																				cursor: 'pointer'
+																				mx: 'auto'
 																			}}
 																		>
-																			File:{' '}
-																			{
-																				comment
-																					.position
-																					.new_path
-																			}
-																			,
-																			Line:{' '}
-																			{
-																				comment
-																					.position
-																					.new_line
-																			}
-																		</Typography>
-																	</>
-																}
-															/>
-														</ListItem>
-														{isLastOfNewestGroup &&
-															hasMoreInlineComments && (
-																<ListItem>
-																	<Button
-																		variant="text"
-																		color="primary"
-																		onClick={() =>
-																			toggleExpandComments(
+																			{expandedCommentSections[
 																				commentKey
-																			)
-																		}
-																		sx={{
-																			mx: 'auto'
-																		}}
-																	>
-																		{expandedCommentSections[
-																			commentKey
-																		]
-																			? 'Show fewer comments'
-																			: `Show ${olderComments.length} more comments`}
-																	</Button>
-																</ListItem>
-															)}
-													</React.Fragment>
-												)
+																			]
+																				? 'Show fewer comments'
+																				: `Show ${olderComments.length} more comments`}
+																		</Button>
+																	</ListItem>
+																)}
+														</React.Fragment>
+													)
+												}
+												return null
 											}
-											return null
+										)}
+									</List>
+								</CardContent>
+							)}
+						</Card>
+					</Grid>
+					{/* Changed Files Card */}
+					<Grid item xs={12} md={4}>
+						<Card>
+							<CardContent>
+								<Typography variant="h6" gutterBottom>
+									Changed Files
+								</Typography>
+								<List dense>
+									{diffs.map((file, index) => {
+										const filePath =
+											file.newPath || file.oldPath
+										const targetId = `diff-${filePath}`
+										const handleFileClick = () => {
+											setExpandedAccordions((prev) => ({
+												...prev,
+												[index]: true
+											}))
+
+											const element =
+												document.getElementById(
+													targetId
+												)
+											if (element) {
+												element.scrollIntoView({
+													behavior: 'smooth',
+													block: 'start'
+												})
+											}
 										}
-									)}
+
+										return (
+											<ListItem
+												key={index}
+												button
+												onClick={handleFileClick}
+												somponent={Button}
+												size="small"
+											>
+												<ListItemText
+													primary={filePath}
+													primaryTypographyProps={{
+														style: {
+															whiteSpace:
+																'nowrap',
+															overflow: 'hidden',
+															textOverflow:
+																'ellipsis'
+														}
+													}}
+												/>
+											</ListItem>
+										)
+									})}
 								</List>
 							</CardContent>
-						)}
-					</Card>
+						</Card>
+					</Grid>
 				</Grid>
+				{/* End of Wrapper Grid */}
 				<Grid item xs={12}>
 					<Card>
 						<CardContent>
@@ -948,6 +1132,24 @@ const RevisionDetail = () => {
 									onChange={handleDiffViewChange}
 								/>
 							</Grid>
+							{/* Add Expand All and Collapse All Buttons */}
+							<Grid item>
+								<Button
+									size="small"
+									onClick={expandAllAccordions}
+									disabled={diffs.length === 0}
+								>
+									Expand All
+								</Button>
+								<Button
+									size="small"
+									onClick={collapseAllAccordions}
+									disabled={diffs.length === 0}
+									sx={{ ml: 1 }}
+								>
+									Collapse All
+								</Button>
+							</Grid>
 							{diffs.length > 0 ? (
 								diffs.map((file, index) => {
 									const processedDiff = preprocessDiff(
@@ -955,24 +1157,34 @@ const RevisionDetail = () => {
 										file.oldPath,
 										file.newPath
 									)
-									const accodionExpanded =
-										diffs.length < 10 ? true : false
 
 									let parsedDiff = []
 									try {
 										parsedDiff = parseDiff(processedDiff)
-									} catch (error) {}
+									} catch (error) {
+										console.error(
+											'Error parsing diff:',
+											error,
+											processedDiff
+										)
+									}
 									const hunks = parsedDiff?.[0]?.hunks || []
 
 									return (
 										<Accordion
 											key={index}
 											sx={{ mb: 3 }}
-											defaultExpanded={accodionExpanded}
+											expanded={
+												expandedAccordions[index] ||
+												false
+											}
+											onChange={handleAccordionChange(
+												index
+											)}
 										>
 											<AccordionSummary
 												expandIcon={<ExpandMore />}
-												id={`diff-${file.newPath}`}
+												id={`diff-${file.newPath || file.oldPath}`}
 											>
 												{file.isNewFile ? (
 													<>
@@ -1148,6 +1360,23 @@ const RevisionDetail = () => {
 					</Box>
 				</Box>
 			</Modal>
+
+			{/* Scroll-to-top Button */}
+			{showScrollTopButton && (
+				<Fab
+					color="primary"
+					size="small"
+					aria-label="scroll back to top"
+					onClick={scrollToTop}
+					sx={{
+						position: 'fixed',
+						bottom: 16,
+						right: 16
+					}}
+				>
+					<KeyboardArrowUp />
+				</Fab>
+			)}
 		</Box>
 	)
 }

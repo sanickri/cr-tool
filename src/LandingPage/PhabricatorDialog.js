@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import {
 	Button,
 	Dialog,
@@ -18,6 +19,8 @@ function ConnectionStatus({
 	setPhabricatorUrl,
 	phabricatorToken,
 	setPhabricatorToken,
+	phabUserPHID,
+	setPhabUserPHID,
 	updateRevisionsForSource,
 	setIsFetching
 }) {
@@ -26,6 +29,7 @@ function ConnectionStatus({
 		setIsFetching(true)
 		localStorage.setItem('phabricatorUrl', phabricatorUrl)
 		localStorage.setItem('phabricatorToken', phabricatorToken)
+		localStorage.setItem('phabUserPHID', phabUserPHID)
 		const phabricatorConfig = {
 			phabricatorUrl: phabricatorUrl,
 			phabricatorToken: phabricatorToken
@@ -33,7 +37,7 @@ function ConnectionStatus({
 		const phabricatorAPI = new PhabricatorAPI(phabricatorConfig)
 
 		phabricatorAPI
-			.getUserInfo(process.env.REACT_APP_PHID)
+			.getUserInfo(phabUserPHID)
 			.then((userInfo) => {
 				console.log('Phabricator User:', userInfo)
 				const user = {
@@ -96,6 +100,19 @@ function ConnectionStatus({
 					value={phabricatorToken}
 					onChange={(e) => setPhabricatorToken(e.target.value)}
 				/>
+				<DialogContentText>
+					Please enter your Phabricator user PHID to connect.
+				</DialogContentText>
+				<TextField
+					autoFocus
+					margin="dense"
+					label="PHID"
+					type="text"
+					fullWidth
+					variant="outlined"
+					value={phabUserPHID}
+					onChange={(e) => setPhabUserPHID(e.target.value)}
+				/>
 			</DialogContent>
 			<DialogActions>
 				<Button
@@ -110,6 +127,20 @@ function ConnectionStatus({
 			</DialogActions>
 		</Dialog>
 	)
+}
+
+ConnectionStatus.propTypes = {
+	setIsPhabConnected: PropTypes.func.isRequired,
+	setPhabricatorDialogOpen: PropTypes.func.isRequired,
+	phabricatorDialogOpen: PropTypes.bool.isRequired,
+	phabricatorUrl: PropTypes.string.isRequired,
+	setPhabricatorUrl: PropTypes.func.isRequired,
+	phabricatorToken: PropTypes.string.isRequired,
+	setPhabricatorToken: PropTypes.func.isRequired,
+	phabUserPHID: PropTypes.string.isRequired,
+	setPhabUserPHID: PropTypes.func.isRequired,
+	updateRevisionsForSource: PropTypes.func.isRequired,
+	setIsFetching: PropTypes.func.isRequired
 }
 
 export default ConnectionStatus

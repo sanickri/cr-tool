@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import {
 	Dialog,
 	DialogTitle,
@@ -158,7 +159,7 @@ function GitlabDialog({
 								-&gt; <b>Applications</b> -&gt;{' '}
 								<b>New Application</b>.<br></br> Uncheck the{' '}
 								<b>Confidential</b> box and set the redirect URI
-								to your application's URL. (eg.
+								to your application&apos;s URL. (eg.
 								http://localhost:3000)
 								<br></br> Save the application and you will be
 								given a secret and application ID. Use these
@@ -170,6 +171,21 @@ function GitlabDialog({
 			</TabContext>
 		</Dialog>
 	)
+}
+
+GitlabDialog.propTypes = {
+	gitlabDialogOpen: PropTypes.bool.isRequired,
+	setGitlabDialogOpen: PropTypes.func.isRequired,
+	gitlabUrl: PropTypes.string.isRequired,
+	setGitlabUrl: PropTypes.func.isRequired,
+	gitlabAppId: PropTypes.string.isRequired,
+	setGitlabAppId: PropTypes.func.isRequired,
+	gitlabSecret: PropTypes.string.isRequired,
+	setGitlabSecret: PropTypes.func.isRequired,
+	gitlabRedirectUri: PropTypes.string.isRequired,
+	setGitlabRedirectUri: PropTypes.func.isRequired,
+	gitlabExpirationDate: PropTypes.object,
+	setGitlabExpirationDate: PropTypes.func.isRequired
 }
 
 export default GitlabDialog

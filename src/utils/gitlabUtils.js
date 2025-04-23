@@ -88,12 +88,7 @@ const gitlabConnect = (gitlabUrl, gitlabAppId, gitlabRedirectUri) => {
 	window.location.href = gitlabAuthUrl
 }
 
-const gitlabCallback = async (
-	code,
-	gitlabSecret,
-	gitlabAppId,
-	gitlabRedirectUri
-) => {
+const gitlabCallback = async (code) => {
 	const response = await fetch(
 		`${localStorage.getItem('gitlabUrl')}/oauth/token`,
 		{
@@ -102,11 +97,11 @@ const gitlabCallback = async (
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				client_id: gitlabAppId,
-				client_secret: gitlabSecret,
+				client_id: localStorage.getItem('gitlabAppId'),
+				client_secret: localStorage.getItem('gitlabSecret'),
 				code: code,
 				grant_type: 'authorization_code',
-				redirect_uri: gitlabRedirectUri
+				redirect_uri: localStorage.getItem('gitlabRedirectUri')
 			})
 		}
 	)
@@ -163,6 +158,7 @@ const getGitlabProjects = async () => {
 	try {
 		if (!gitlabUser) return null
 
+		// eslint-disable-next-line no-constant-condition
 		while (true) {
 			const response = await fetch(
 				`${gitlabUrl}/api/v4/projects?membership=true&per_page=100&page=${page}`,
@@ -378,6 +374,43 @@ async function getMRComments(projectId, mergeRequestId) {
 	}
 }
 
+async function getMRCommits(projectId, mergeRequestId) {
+	const gitlabToken = getGitlabToken()
+	try {
+		const response = await fetch(
+			`${localStorage.getItem('gitlabUrl')}/api/v4/projects/${projectId}/merge_requests/${mergeRequestId}/commits`,
+			{
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		if (!response.ok) {
+			throw new Error(
+				`Error fetching merge request commits: ${response.statusText}`
+			)
+		}
+
+		const commits = await response.json()
+		// Transform commits slightly for consistency
+		return commits.map((commit) => ({
+			id: commit.id,
+			message: commit.message,
+			author: {
+				name: commit.author_name,
+				email: commit.author_email,
+				epoch: new Date(commit.authored_date).getTime() / 1000 // Convert to epoch seconds
+			}
+		}))
+	} catch (error) {
+		console.error('Error fetching merge request commits:', error)
+		return []
+	}
+}
+
 async function getTransformedGitlabMRs() {
 	const mergeRequests = await getGitlabMRsFromAllProjects()
 	const followedUsers = safeJSONParse('followedUsers', [])
@@ -455,6 +488,7 @@ const getTransformedMRInfo = async (revision) => {
 	const inlineComments = comments.filter(
 		(comment) => comment.type === 'DiffNote'
 	)
+	const commits = await getMRCommits(revision.project_id, revision.iid) // Fetch commits
 	return {
 		id: revision.iid,
 		title: revision.title,
@@ -474,7 +508,8 @@ const getTransformedMRInfo = async (revision) => {
 		reviewers: revision.reviewers,
 		comments: comments || [],
 		pipeline: revision.pipeline.status,
-		inlineComments: inlineComments || []
+		inlineComments: inlineComments || [],
+		commits: commits || [] // Add commits here
 	}
 }
 
@@ -537,5 +572,6 @@ export {
 	getTransformedGitlabMRs,
 	getFollowedUsers,
 	getTransformedMRInfo,
-	getMRDiff
+	getMRDiff,
+	getMRCommits
 }
