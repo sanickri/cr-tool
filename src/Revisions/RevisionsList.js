@@ -14,7 +14,8 @@ import {
 	InputLabel,
 	Link,
 	Grid,
-	Button
+	Button,
+	Box
 } from '@mui/material'
 import DraftsIcon from '@mui/icons-material/HourglassTop'
 import { Star } from '@mui/icons-material'
@@ -57,12 +58,21 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			return { items: [] }
 		}
 	})
-	const [filters, setFilters] = useState({
-		status: '',
-		title: '',
-		author: 'All',
-		project: 'All',
-		isDraft: false
+	const [filters, setFilters] = useState(() => {
+		const saved = localStorage.getItem('revisionListFilters')
+		const defaultFilters = {
+			status: '',
+			title: '',
+			author: 'All',
+			project: 'All',
+			isDraft: false
+		}
+		try {
+			return saved ? JSON.parse(saved) : defaultFilters
+		} catch (e) {
+			console.error('Error parsing saved filters', e)
+			return defaultFilters
+		}
 	})
 	// eslint-disable-next-line no-unused-vars
 	const [userGroups, setUserGroups] = useState(() => {
@@ -84,9 +94,32 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			return []
 		}
 	})
-	const [groupFilters, setGroupFilters] = useState({
-		userGroups: ['None'],
-		projectGroups: []
+	const [groupFilters, setGroupFilters] = useState(() => {
+		const saved = localStorage.getItem('revisionListGroupFilters')
+		const defaultGroupFilters = {
+			userGroups: 'None',
+			projectGroups: []
+		} // userGroups should be 'None' initially based on MenuItem value
+		try {
+			const parsed = saved ? JSON.parse(saved) : defaultGroupFilters
+			// Ensure userGroups is compatible with Select (string, not array if single value)
+			if (
+				Array.isArray(parsed.userGroups) &&
+				parsed.userGroups.length <= 1
+			) {
+				parsed.userGroups = parsed.userGroups[0] || 'None'
+			} else if (
+				Array.isArray(parsed.userGroups) &&
+				parsed.userGroups.length > 1
+			) {
+				// If multiple were saved somehow, reset to 'None' as the Select doesn't support multiple
+				parsed.userGroups = 'None'
+			}
+			return parsed
+		} catch (e) {
+			console.error('Error parsing saved group filters', e)
+			return defaultGroupFilters
+		}
 	})
 	const [projects, setProjects] = useState(['All'])
 	const [authors, setAuthors] = useState(['All'])
@@ -96,7 +129,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 
 	useEffect(() => {
 		const validRevisions = Array.isArray(revisions) ? revisions : []
-		setFilteredRevisions(validRevisions)
+		// setFilteredRevisions(validRevisions); // Initial set removed, applyFilters handles it
 
 		if (validRevisions && validRevisions.length > 0) {
 			const allProjects = validRevisions
@@ -112,13 +145,95 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 				.sort()
 			const uniqueAuthors = ['All', ...new Set(allAuthors)]
 			setAuthors(uniqueAuthors)
+
+			// Apply the initially loaded filters (from localStorage or defaults)
+			applyFilters(validRevisions, filters, groupFilters)
+		} else {
+			setFilteredRevisions([]) // Ensure it's empty if revisions are empty/invalid
+			setProjects(['All'])
+			setAuthors(['All'])
 		}
-	}, [revisions])
+		// Dependencies: revisions, filters, groupFilters to re-apply if initial state changes?
+		// Let's only depend on revisions for now, as filters are applied via handlers.
+	}, [revisions]) // Keep dependency only on revisions for setting options and initial filter application
+
+	const applyFilters = (
+		baseRevisions,
+		currentFilters,
+		currentGroupFilters
+	) => {
+		const validRevisions = Array.isArray(baseRevisions) ? baseRevisions : []
+		let filtered = validRevisions.flat()
+
+		// Apply standard filters
+		filtered = filtered.filter((revision) => {
+			const matchesStatus =
+				!currentFilters.status ||
+				revision.status === currentFilters.status
+			const matchesTitle =
+				!currentFilters.title ||
+				revision.title
+					.toLowerCase()
+					.includes(currentFilters.title.toLowerCase())
+			const matchesAuthor =
+				!currentFilters.author ||
+				currentFilters.author === 'All' ||
+				revision.author
+					.toLowerCase()
+					.includes(currentFilters.author.toLowerCase())
+			const matchesProject =
+				currentFilters.project === 'All' ||
+				revision.project === currentFilters.project
+			const matchesIsDraft =
+				!currentFilters.isDraft ||
+				revision.isDraft === currentFilters.isDraft
+			return (
+				matchesStatus &&
+				matchesTitle &&
+				matchesAuthor &&
+				matchesProject &&
+				matchesIsDraft
+			)
+		})
+
+		// Apply user group filters
+		if (
+			currentGroupFilters.userGroups &&
+			currentGroupFilters.userGroups !== 'None'
+		) {
+			const validUserGroups = Array.isArray(userGroups) ? userGroups : []
+			const selectedGroup = validUserGroups.find(
+				(group) => group.name === currentGroupFilters.userGroups
+			)
+			if (selectedGroup) {
+				const groupUsers = Array.isArray(selectedGroup.users)
+					? selectedGroup.users
+					: []
+				filtered = filtered.filter((revision) =>
+					groupUsers.includes(revision.author)
+				)
+			} else {
+				console.error(
+					'Selected group not found in applyFilters:',
+					currentGroupFilters.userGroups
+				)
+			}
+		}
+
+		// Apply project group filters (if implemented later)
+		// ...
+
+		console.log('Filtered revisions (applyFilters):', filtered)
+		setFilteredRevisions(filtered)
+	}
 
 	const handleFiltersChange = (newFilters) => {
 		console.log('New filters:', newFilters)
 		setFilters(newFilters)
+		localStorage.setItem('revisionListFilters', JSON.stringify(newFilters)) // Save here
+		applyFilters(revisions, newFilters, groupFilters) // Apply immediately
 
+		/* // Remove old filtering logic from here
 		const validRevisions = Array.isArray(revisions) ? revisions : []
 		const newRevisions = validRevisions.flat().filter((revision) => {
 			const matchesStatus =
@@ -151,47 +266,17 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 
 		console.log('Filtered revisions:', newRevisions)
 		setFilteredRevisions(newRevisions)
+		*/
 	}
 
 	const handleSetUserGroupFilters = (newGroupFilters) => {
 		setGroupFilters(newGroupFilters)
+		localStorage.setItem(
+			'revisionListGroupFilters',
+			JSON.stringify(newGroupFilters)
+		) // Save here
 		console.log('New group filters:', newGroupFilters)
-
-		const validRevisions = Array.isArray(revisions) ? revisions : []
-
-		if (
-			newGroupFilters.userGroups === 'None' ||
-			!newGroupFilters.userGroups ||
-			newGroupFilters.userGroups.length === 0
-		) {
-			setFilteredRevisions(validRevisions.flat())
-			return
-		}
-
-		const validUserGroups = Array.isArray(userGroups) ? userGroups : []
-		const selectedGroup = validUserGroups.find(
-			(group) => group.name === newGroupFilters.userGroups
-		)
-
-		if (!selectedGroup) {
-			console.error(
-				'Selected group not found:',
-				newGroupFilters.userGroups
-			)
-			setFilteredRevisions(validRevisions.flat())
-			return
-		}
-
-		console.log('User group authors:', selectedGroup.users)
-
-		const groupUsers = Array.isArray(selectedGroup.users)
-			? selectedGroup.users
-			: []
-		const newFilteredRevisions = validRevisions
-			.flat()
-			.filter((revision) => groupUsers.includes(revision.author))
-
-		setFilteredRevisions(newFilteredRevisions)
+		applyFilters(revisions, filters, newGroupFilters)
 	}
 
 	const handleFilterModelChange = (newFilterModel) => {
@@ -229,10 +314,39 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 			headerName: '',
 			width: 50,
 			renderCell: (cellValues) => {
+				const getColorCode = (colorName) => {
+					switch (colorName) {
+						case 'blue':
+							return '#a0d4f2'
+						case 'orange':
+							return '#f2caa0'
+						case 'yellow':
+							return '#fff9c4'
+						case 'git-green':
+							return '#bdde87'
+						case 'phab-green':
+							return '#92debe'
+						default:
+							return 'transparent'
+					}
+				}
+				const bgColor = getColorCode(cellValues.row.color)
+
 				return (
-					<IconButton>
-						{mapStatusToIcon[cellValues.row.status]}
-					</IconButton>
+					<Box
+						sx={{
+							width: '100%',
+							height: '100%',
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							backgroundColor: bgColor
+						}}
+					>
+						<IconButton size="small">
+							{mapStatusToIcon[cellValues.row.status]}
+						</IconButton>
+					</Box>
 				)
 			}
 		},
@@ -422,7 +536,6 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 								<Checkbox
 									id="draft-filter-checkbox"
 									checked={filters.isDraft}
-									unchecked={!filters.isDraft}
 									onChange={(e) =>
 										handleFiltersChange({
 											...filters,
@@ -431,7 +544,7 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 									}
 								/>
 							}
-							label="Show Drafts"
+							label="Draft"
 							labelPlacement="end"
 							htmlFor="draft-filter-checkbox"
 						/>
@@ -478,21 +591,23 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 					</FormControl>
 				</Grid>
 
-				{!isFetching && !hasRevisionsToShow && (
-					<Alert severity="info" color="warning">
-						No revisions found for the selected filters.
-					</Alert>
-				)}
+				{(!revisions ||
+					revisions.length === 0 ||
+					!hasRevisionsToShow) &&
+					!isFetching && (
+						<Alert severity="info" color="warning">
+							No revisions found
+						</Alert>
+					)}
 				{hasRevisionsToShow && (
 					<DataGrid
 						rows={rows}
 						columns={columns}
 						filterModel={filterModel}
 						onFilterModelChange={handleFilterModelChange}
-						getRowClassName={(params) =>
-							`row-color-${params.row.color}`
-						}
-						sx={{
+						sx={
+							{
+								/*
 							'& .row-color-blue': {
 								backgroundColor: '#a0d4f2'
 							},
@@ -508,7 +623,9 @@ const RevisionsDataGrid = ({ revisions, isFetching }) => {
 							'& .row-color-phab-green': {
 								backgroundColor: '#92debe'
 							}
-						}}
+							*/
+							}
+						}
 					/>
 				)}
 			</Container>

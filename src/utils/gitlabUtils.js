@@ -310,7 +310,8 @@ async function getGitlabMRsFromAllProjects() {
 			return mrs.map((mr) => ({
 				...mr,
 				project_namespace: project.path_with_namespace || 'Unknown',
-				project_url: project.web_url
+				project_url: project.web_url,
+				name: project.name
 			}))
 		})
 	)
@@ -423,7 +424,7 @@ async function getTransformedGitlabMRs() {
 		author: mr.author?.name || 'Unknown',
 		dateModified: mr.updated_at,
 		isDraft: mr.work_in_progress,
-		project: mr.project_namespace,
+		project: mr.name,
 		projectUrl: mr.project_url,
 		projectId: mr.project_id,
 		iid: mr.iid || '',
@@ -476,40 +477,95 @@ const getFollowedUsers = async () => {
 	}
 }
 
-const getTransformedMRInfo = async (revision) => {
-	console.log('Not transformed revision:', revision)
-	const projects = safeJSONParse('gitProjects', [])
-	const comments = await getMRComments(revision.project_id, revision.iid)
-	comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-	const project = projects.find(
-		(project) => project.id === revision.project_id
+async function getTransformedMRInfo(revision) {
+	console.log(
+		'[getTransformedMRInfo] Starting transformation for revision:',
+		revision?.iid,
+		revision
 	)
-	const jiraId = revision.title.match(/\[(\w+-\d+)\]/)?.[1]
-	const inlineComments = comments.filter(
-		(comment) => comment.type === 'DiffNote'
-	)
-	const commits = await getMRCommits(revision.project_id, revision.iid) // Fetch commits
-	return {
-		id: revision.iid,
-		title: revision.title,
-		summary: revision.description,
-		status: revision.detailed_merge_status,
-		url: revision.web_url,
-		author: {
-			name: revision.author.name,
-			username: revision.author.username
-		},
-		dateModified: revision.updated_at,
-		project: project.path_with_namespace,
-		projectUrl: project.web_url,
-		projectId: project.id,
-		jiraId: jiraId || '',
-		branch: revision.source_branch,
-		reviewers: revision.reviewers,
-		comments: comments || [],
-		pipeline: revision.pipeline.status,
-		inlineComments: inlineComments || [],
-		commits: commits || [] // Add commits here
+	try {
+		const projects = safeJSONParse('gitProjects', [])
+		console.log(
+			`[getTransformedMRInfo] Found ${projects?.length} projects in storage.`
+		)
+		const project = projects?.find((p) => p.id === revision.project_id)
+		console.log(
+			`[getTransformedMRInfo] Found project in storage:`,
+			project ? project.id : 'Not Found'
+		)
+		if (!project) {
+			console.error(
+				`[getTransformedMRInfo] Critical Error: Project with ID ${revision.project_id} not found in local storage ('gitProjects'). Cannot proceed.`
+			)
+			return null // Stop transformation if project is missing
+		}
+
+		console.log(
+			`[getTransformedMRInfo] Fetching comments for MR ${revision.iid}...`
+		)
+		const comments = await getMRComments(revision.project_id, revision.iid)
+		console.log(
+			`[getTransformedMRInfo] Fetched ${comments?.length} comments.`
+		)
+		comments?.sort(
+			(a, b) => new Date(a.created_at) - new Date(b.created_at)
+		)
+
+		console.log(
+			`[getTransformedMRInfo] Fetching commits for MR ${revision.iid}...`
+		)
+		const commits = await getMRCommits(revision.project_id, revision.iid)
+		console.log(
+			`[getTransformedMRInfo] Fetched ${commits?.length} commits.`
+		)
+
+		console.log(`[getTransformedMRInfo] Filtering inline comments...`)
+		const inlineComments =
+			comments?.filter((comment) => comment?.type === 'DiffNote') || []
+		console.log(
+			`[getTransformedMRInfo] Found ${inlineComments?.length} inline comments.`
+		)
+
+		console.log(`[getTransformedMRInfo] Extracting Jira ID...`)
+		const jiraId = revision.title?.match(/\[(\w+-\d+)\]/)?.[1] // Optional chaining
+		console.log(`[getTransformedMRInfo] Jira ID found: ${jiraId || 'None'}`)
+
+		console.log(`[getTransformedMRInfo] Constructing final object...`)
+		// Use optional chaining heavily to avoid crashes on null/undefined properties
+		const transformed = {
+			id: revision.iid,
+			title: revision.title,
+			summary: revision.description,
+			status: revision.detailed_merge_status,
+			url: revision.web_url,
+			author: {
+				name: revision.author?.name,
+				username: revision.author?.username
+			},
+			dateModified: revision.updated_at,
+			project: project?.name,
+			projectUrl: project?.web_url,
+			projectId: project?.id,
+			jiraId: jiraId || '',
+			branch: revision.source_branch,
+			reviewers: revision.reviewers || [],
+			comments: comments || [],
+			// Check pipeline existence before accessing status
+			pipeline: revision.pipeline?.status,
+			inlineComments: inlineComments || [],
+			commits: commits || [],
+			diff_refs: revision.diff_refs
+		}
+		console.log(
+			`[getTransformedMRInfo] Transformation successful for MR ${revision.iid}.`
+		)
+		return transformed
+	} catch (error) {
+		console.error(
+			`[getTransformedMRInfo] Error during transformation for MR ${revision?.iid}:`,
+			error
+		)
+		return null // Return null on error to indicate failure
 	}
 }
 
@@ -559,6 +615,191 @@ async function getMRDiff(projectId, mergeRequestIid) {
 	}
 }
 
+async function addGitlabComment(projectId, mergeRequestIid, body) {
+	const gitlabToken = getGitlabToken()
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	if (!gitlabToken || !gitlabUrl || !projectId || !mergeRequestIid || !body) {
+		console.error('Missing required parameters for adding comment')
+		throw new Error('Missing required parameters for adding comment')
+	}
+
+	try {
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects/${projectId}/merge_requests/${mergeRequestIid}/notes`,
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				},
+				body: JSON.stringify({ body })
+			}
+		)
+
+		if (!response.ok) {
+			const errorData = await response.json()
+			console.error('Error adding comment:', errorData)
+			throw new Error(
+				`Error adding comment: ${response.statusText} - ${errorData.message || ''}`
+			)
+		}
+
+		const newComment = await response.json()
+		console.log('Comment added successfully:', newComment)
+		return newComment
+	} catch (error) {
+		console.error('Error adding comment:', error)
+		throw error // Re-throw the error for the caller to handle
+	}
+}
+
+async function addGitlabInlineComment(
+	projectId,
+	mergeRequestIid,
+	body,
+	position
+) {
+	const gitlabToken = getGitlabToken()
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	if (
+		!gitlabToken ||
+		!gitlabUrl ||
+		!projectId ||
+		!mergeRequestIid ||
+		!body ||
+		!position
+	) {
+		console.error('Missing required parameters for adding inline comment')
+		throw new Error('Missing required parameters for adding inline comment')
+	}
+
+	// Ensure position has required fields for GitLab API
+	if (
+		!position.base_sha ||
+		!position.start_sha ||
+		!position.head_sha ||
+		!position.new_path ||
+		!position.position_type
+	) {
+		console.error(
+			'Missing required fields in position object for inline comment:',
+			position
+		)
+		throw new Error(
+			'Missing required fields in position object for inline comment'
+		)
+	}
+	// Must have either old_line or new_line
+	if (position.old_line == null && position.new_line == null) {
+		console.error(
+			'Position object must contain either old_line or new_line:',
+			position
+		)
+		throw new Error(
+			'Position object must contain either old_line or new_line'
+		)
+	}
+
+	try {
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects/${projectId}/merge_requests/${mergeRequestIid}/discussions`,
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${gitlabToken}`
+				},
+				body: JSON.stringify({
+					body: body,
+					position: position
+				})
+			}
+		)
+
+		if (!response.ok) {
+			const errorData = await response.json()
+			console.error('Error adding inline comment:', errorData)
+			throw new Error(
+				`Error adding inline comment: ${response.statusText} - ${JSON.stringify(errorData.message || '')}`
+			)
+		}
+
+		const newDiscussion = await response.json()
+		// The API returns the discussion, the first note is our comment
+		const newComment = newDiscussion?.notes?.[0]
+		console.log('Inline comment added successfully:', newComment)
+		return newComment // Return the actual comment object
+	} catch (error) {
+		console.error('Error in addGitlabInlineComment:', error)
+		throw error
+	}
+}
+
+async function deleteGitlabComment(projectId, mergeRequestIid, noteId) {
+	const gitlabToken = getGitlabToken()
+	const gitlabUrl = localStorage.getItem('gitlabUrl')
+
+	if (
+		!gitlabToken ||
+		!gitlabUrl ||
+		!projectId ||
+		!mergeRequestIid ||
+		!noteId
+	) {
+		console.error('Missing required parameters for deleting comment')
+		throw new Error('Missing required parameters for deleting comment')
+	}
+
+	try {
+		const response = await fetch(
+			`${gitlabUrl}/api/v4/projects/${projectId}/merge_requests/${mergeRequestIid}/notes/${noteId}`,
+			{
+				method: 'DELETE',
+				headers: {
+					Authorization: `Bearer ${gitlabToken}`
+				}
+			}
+		)
+
+		// GitLab DELETE returns 204 No Content on success
+		if (response.status === 204) {
+			console.log(`Comment with noteId ${noteId} deleted successfully.`)
+			return true // Indicate success
+		} else if (!response.ok) {
+			// Try to parse error if possible
+			let errorData = {}
+			try {
+				errorData = await response.json()
+			} catch (e) {
+				/* Ignore parsing error */
+			}
+			console.error(
+				`Error deleting comment ${noteId}:`,
+				response.status,
+				response.statusText,
+				errorData
+			)
+			throw new Error(
+				`Error deleting comment: ${response.statusText} - ${JSON.stringify(errorData.message || '')}`
+			)
+		} else {
+			// Handle unexpected successful status codes if needed
+			console.warn(
+				`Unexpected status code ${response.status} when deleting comment ${noteId}.`
+			)
+			return true // Assume success on other 2xx codes potentially? Or throw error?
+		}
+	} catch (error) {
+		console.error(
+			`Error in deleteGitlabComment for noteId ${noteId}:`,
+			error
+		)
+		throw error
+	}
+}
+
 export {
 	getRoleName,
 	isGitlabTokenValid,
@@ -573,5 +814,8 @@ export {
 	getFollowedUsers,
 	getTransformedMRInfo,
 	getMRDiff,
-	getMRCommits
+	getMRCommits,
+	addGitlabComment,
+	addGitlabInlineComment,
+	deleteGitlabComment
 }

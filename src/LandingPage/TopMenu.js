@@ -294,10 +294,7 @@ const TopMenu = ({
 							<MenuItem
 								onClick={handleOpenFetchDialog}
 								sx={{
-									display:
-										isGitConnected && hasGitProjects
-											? 'block'
-											: 'none'
+									display: isGitConnected ? 'block' : 'none'
 								}}
 								role="menuitem"
 								data-testid="fetch-projects-menu-item"

@@ -12,6 +12,7 @@
     "@mui/material": "^6.4.11",
     "@mui/x-data-grid": "^7.22.1",
     "@mui/x-date-pickers": "^7.28.3",
+    "@uiw/react-md-editor": "^4.0.5",
     "axios": "^1.7.4",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",

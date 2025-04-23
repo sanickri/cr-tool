@@ -35,4 +35,20 @@ Object.defineProperty(window, 'matchMedia', {
 	}))
 })
 
+// Mock MDEditor components
+jest.mock('@uiw/react-md-editor', () => ({
+	default: props => (
+		<div data-testid="mock-md-editor">
+			{props.value}
+		</div>
+	),
+	__esModule: true,
+	preview: 'div',
+}))
+
+// Mock styles imports
+jest.mock('react-diff-view/style/index.css', () => {
+	return {};
+}, { virtual: true });
+
 console.log('Jest setupTests.js executed.')
