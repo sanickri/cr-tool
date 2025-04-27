@@ -149,7 +149,7 @@ class PhabricatorAPI {
 
 	async processComments(inlineDetails) {
 		if (!inlineDetails) {
-			return []
+			return { comments: [], inlineComments: [] }
 		}
 		console.log('Inline Details:', inlineDetails)
 		const data = inlineDetails.data

@@ -237,6 +237,8 @@ const getProjectsByIds = async (ids) => {
 		return fetchedProjects
 	} catch (error) {
 		console.error('Error fetching projects:', error)
+		// Re-throw the error so the promise rejects
+		throw error 
 	}
 }
 
@@ -301,7 +303,7 @@ async function getUnmergedGitlabMergeRequests(projectId) {
 
 async function getGitlabMRsFromAllProjects() {
 	const projects = safeJSONParse('gitProjects', [])
-	if (!projects) return []
+	if (!projects || projects.length === 0) return []
 
 	const mergeRequests = await Promise.all(
 		projects.map(async (project) => {
@@ -434,7 +436,7 @@ async function getTransformedGitlabMRs() {
 				? 'git-green'
 				: 'orange',
 		jiraId: mr.title.match(/\[(\w+-\d+)\]/)?.[1],
-		following: followedUsers.some((user) => user.id === mr.author.id),
+		following: followedUsers.some((user) => user.id === mr.author?.id),
 		rowClick: async () => {
 			const mrdet = await getGitlabMRbyId(mr.iid, mr.project_id)
 			console.log('Merge Request:', mrdet)
@@ -503,21 +505,39 @@ async function getTransformedMRInfo(revision) {
 		console.log(
 			`[getTransformedMRInfo] Fetching comments for MR ${revision.iid}...`
 		)
-		const comments = await getMRComments(revision.project_id, revision.iid)
-		console.log(
-			`[getTransformedMRInfo] Fetched ${comments?.length} comments.`
-		)
-		comments?.sort(
-			(a, b) => new Date(a.created_at) - new Date(b.created_at)
-		)
+		let comments
+		try {
+			comments = await getMRComments(revision.project_id, revision.iid)
+			console.log(
+				`[getTransformedMRInfo] Fetched ${comments?.length} comments.`
+			)
+			comments?.sort(
+				(a, b) => new Date(a.created_at) - new Date(b.created_at)
+			)
+		} catch (error) {
+			console.error(
+				`[getTransformedMRInfo] Error during transformation for MR ${revision?.iid}:`,
+				error
+			)
+			return null
+		}
 
 		console.log(
 			`[getTransformedMRInfo] Fetching commits for MR ${revision.iid}...`
 		)
-		const commits = await getMRCommits(revision.project_id, revision.iid)
-		console.log(
-			`[getTransformedMRInfo] Fetched ${commits?.length} commits.`
-		)
+		let commits
+		try {
+			commits = await getMRCommits(revision.project_id, revision.iid)
+			console.log(
+				`[getTransformedMRInfo] Fetched ${commits?.length} commits.`
+			)
+		} catch (error) {
+			console.error(
+				`[getTransformedMRInfo] Error during transformation for MR ${revision?.iid}:`,
+				error
+			)
+			return null
+		}
 
 		console.log(`[getTransformedMRInfo] Filtering inline comments...`)
 		const inlineComments =
@@ -809,13 +829,17 @@ export {
 	getGitlabProjects,
 	getProjectsByIds,
 	getStarredGitlabProjects,
+	getUnmergedGitlabMergeRequests,
 	getGitlabMRbyId,
 	getTransformedGitlabMRs,
+	getGitlabMRsFromAllProjects,
 	getFollowedUsers,
 	getTransformedMRInfo,
 	getMRDiff,
+	getMRComments,
 	getMRCommits,
 	addGitlabComment,
 	addGitlabInlineComment,
-	deleteGitlabComment
+	deleteGitlabComment,
+	safeJSONParse
 }
