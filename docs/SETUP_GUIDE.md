@@ -10,7 +10,7 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/cr-tool.git
+   git clone https://github.com/sanickri/cr-tool.git
    cd cr-tool
    ```
 
@@ -21,7 +21,6 @@
 
 3. Create a `.env` file in the root directory with the following variables:
    ```
-   REACT_APP_MOCK_MODE=false
    REACT_APP_API_BASE_URL=http://localhost:3000
    ```
 
@@ -29,24 +28,10 @@
 
 1. Start the development server:
    ```bash
-   npm start
+   npm run dev
    ```
 
 2. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-### Using Mock Mode
-
-For development without actual API connections:
-
-1. Set the mock mode environment variable:
-   ```
-   REACT_APP_MOCK_MODE=true
-   ```
-
-2. Start the development server normally:
-   ```bash
-   npm start
-   ```
 
 ## Configuration
 
@@ -142,4 +127,5 @@ For development without actual API connections:
 
 - Run tests: `npm test`
 - Check for linting issues: `npm run lint`
+- Autofix prettier issues: `npx prettier src --write`
 - Update dependencies: `npm update` 
