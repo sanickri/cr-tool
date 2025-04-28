@@ -132,7 +132,3 @@ Data is primarily stored in:
 ## 10. Testing
 
 Testing is set up with Jest and React Testing Library in `setupTests.js`.
-
-## 11. Mock Mode
-
-The application includes a mock mode for development without requiring actual API connections. This is controlled via the `isInMockMode()` utility function. 
