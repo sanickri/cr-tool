@@ -238,7 +238,7 @@ const getProjectsByIds = async (ids) => {
 	} catch (error) {
 		console.error('Error fetching projects:', error)
 		// Re-throw the error so the promise rejects
-		throw error 
+		throw error
 	}
 }
 
